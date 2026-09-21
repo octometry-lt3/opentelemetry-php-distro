@@ -17,6 +17,11 @@ if [ -z "${OTEL_PHP_TESTS_EXTERNAL_SERVICES_ENV_VARS_ARE_SET+x}" ] || [ "${OTEL_
     export OTEL_PHP_TESTS_POSTGRESQL_PASSWORD=otel_passwd
     export OTEL_PHP_TESTS_POSTGRESQL_DB=otel_db
 
+    export OTEL_PHP_TESTS_OTLP_GRPC_RECEIVER_HOST=otel-php-distro-tests-component-jaeger
+    export OTEL_PHP_TESTS_OTLP_GRPC_RECEIVER_PORT=4317
+    export OTEL_PHP_TESTS_OTLP_GRPC_QUERY_HOST=otel-php-distro-tests-component-jaeger
+    export OTEL_PHP_TESTS_OTLP_GRPC_QUERY_PORT=16686
+
     export OTEL_PHP_TESTS_EXTERNAL_SERVICES_DOCKER_COMPOSE_CMD_PREFIX="docker compose -f ${repo_root_dir:?}/tools/test/component/docker_compose_external_services.yml"
 
     export OTEL_PHP_TESTS_EXTERNAL_SERVICES_ENV_VARS_ARE_SET=true

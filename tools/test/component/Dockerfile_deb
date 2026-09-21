@@ -1,24 +1,36 @@
 ARG PHP_VERSION
-FROM php:${PHP_VERSION}-cli
+FROM debian:trixie-slim
+
+ARG PHP_VERSION
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN test "${PHP_VERSION}" = '8.1'
 
 RUN ls -1 /etc/*release | xargs -i sh -c 'echo {} && cat {}'
 
 RUN apt-get -qq update \
     && apt-get -qq -y --no-install-recommends install \
+        ca-certificates \
+        curl \
         git \
-        libpq-dev \
-        libzip-dev \
+        lsb-release \
         logrotate \
         procps \
-        rsyslog
-
-RUN docker-php-ext-install \
-        mysqli \
-        pgsql \
-        zip
-
-# OPcache is built into PHP core since 8.5
-RUN if [ "$(php -r 'echo PHP_VERSION_ID;')" -lt 80500 ]; then docker-php-ext-install opcache; fi
+        rsyslog \
+    && curl -sSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb \
+    && dpkg -i /tmp/debsuryorg-archive-keyring.deb \
+    && printf '%s\n' 'deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ trixie main' > /etc/apt/sources.list.d/php.list \
+    && apt-get -qq update \
+    && apt-get -qq -y --no-install-recommends install \
+        php8.1-cli \
+        php8.1-curl \
+        php8.1-mysql \
+        php8.1-pgsql \
+        php8.1-zip \
+        php8.1-opcache \
+    && test "$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')" = '8.1' \
+    && ! dpkg-query --show --showformat='${Package}\n' php8.1-grpc 2>/dev/null \
+    && rm -rf /var/lib/apt/lists/* /tmp/debsuryorg-archive-keyring.deb
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

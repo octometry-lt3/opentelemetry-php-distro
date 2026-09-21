@@ -1,7 +1,7 @@
 ---
-status: planned
+status: in-progress
 created: 2026-09-21
-task: 1/6
+task: 5/6
 required_gates:
   architect_review: false
   memory_update: true
@@ -11,33 +11,33 @@ required_gates:
 
 # Enable OTLP/gRPC export in the DEB Distro Implementation plan
 
-**Goal:** Make a Debian-installed, scoped OpenTelemetry PHP Distro resolve declarative `otlp_grpc` exporters and export traces to an OTLP/gRPC receiver, while retaining existing OTLP/HTTP behavior.
+**Goal:** Make all Debian-installed, scoped OpenTelemetry PHP Distro packages target Sury PHP 8.1, resolve declarative `otlp_grpc` exporters, and export traces to an OTLP/gRPC receiver, while retaining existing OTLP/HTTP behavior.
 
-**Architecture:** Add the gRPC transport as a production Composer dependency so PHP-Scoper carries its implementation, provider metadata, and transitive `grpc/grpc` code into the packaged vendor tree. Make the DEB package depend on a PHP-API-compatible `ext-grpc` provider, then exercise the installed DEB—not source-tree dependencies—against a real OTLP/gRPC receiver. RPM and APK artifacts remain unchanged and are explicitly documented as outside this issue.
+**Architecture:** Add the gRPC transport as a production Composer dependency so PHP-Scoper carries its implementation, provider metadata, and transitive `grpc/grpc` code into the packaged vendor tree. Make every DEB package depend on Sury `php8.1-grpc`, and constrain DEB build/test/runtime selection to the matching Sury PHP 8.1 CLI runtime. Exercise the installed DEB—not source-tree dependencies—against a real OTLP/gRPC receiver. RPM and APK artifacts remain on their existing PHP-version support matrix and are explicitly outside gRPC support for this issue.
 
-**Tech Stack:** PHP 8.1–8.5, Composer/Composer locks, PHP-Scoper, nfpm DEB packaging, Docker component tests, OpenTelemetry Collector OTLP/gRPC receiver.
+**Tech Stack:** PHP 8.1 (all DEB packaging/runtime), PHP 8.1–8.5 (Composer locks and RPM/APK support), Composer/Composer locks, PHP-Scoper, nfpm DEB packaging, Docker component tests, OpenTelemetry Collector OTLP/gRPC receiver.
 
 **Scope classification:** `multi-task`
 
-## Required decision gate
+## Approved compatibility boundary
 
-The requested package-managed extension contract is not implementable until it is proven that the package dependency can select an `ext-grpc` build compatible with every PHP API supported by the version-agnostic Distro DEB (8.1–8.5). The current DEB component image uses an official `php:<version>-cli` build, whereas Debian extension packages normally target the distribution PHP build. Before changing production metadata, record the exact package names/repositories and compatibility matrix, or obtain approval to narrow the supported DEB/PHP combinations. Do not silently replace the package-managed contract with a documented prerequisite.
+All DEB artifacts and DEB package tests are intentionally limited to the Sury PHP 8.1 CLI runtime. Every DEB must depend on `php8.1-grpc`; the DEB test image must install Sury PHP 8.1 rather than use the official `php:8.1-cli` `/usr/local` runtime. DEB PHP 8.2–8.5 artifacts and matrix rows are removed from this delivery because they require distinct extension packages/API binaries. Do not replace this package-managed contract with a documented prerequisite. RPM and APK retain their existing PHP-version matrix but do not gain gRPC support.
 
 ## Tasks
 
-### Task 1: Establish the Debian gRPC extension compatibility contract
+### Task 1: Establish the Debian PHP 8.1 gRPC extension contract
 
-**Objective:** Prove and record how a Distro DEB installation obtains an `ext-grpc` binary compatible with each supported PHP minor.
+**Objective:** Make and record how every Distro DEB installation running Sury PHP 8.1 obtains the matching package-managed `ext-grpc` binary.
 
 **Files:**
 - Modify: `packaging/nfpm.yaml`
 - Modify: `tools/test/component/Dockerfile_deb`
 - Modify: `docs/reference/supported-technologies.md`
-- Validate: DEB installation in the PHP 8.1–8.5 package test matrix
+- Validate: DEB installation in the Sury PHP 8.1 package test matrix row
 
 **Step 1: Establish expected behaviour**
 
-For each supported PHP minor in `project.properties`, identify the exact APT package/repository and dependency expression that makes `extension_loaded('grpc')` true for the PHP binary enabled by `post-install.sh`. Confirm that installing the Distro DEB pulls that dependency rather than relying on an image-local PECL install.
+Confirm the exact Sury APT repository setup and `php8.1-grpc` dependency expression that make `extension_loaded('grpc')` true for the Sury PHP 8.1 binary enabled by `post-install.sh`. Confirm that installing the Distro DEB pulls that dependency rather than relying on an image-local PECL install.
 
 **Step 2: Add or update validation**
 
@@ -45,13 +45,13 @@ Extend the DEB test image/setup to install only the prerequisites needed to reso
 
 **Step 3: Write minimal implementation**
 
-Add the verified DEB-only dependency declaration to `packaging/nfpm.yaml` and the matching APT repository/setup to `Dockerfile_deb`. Keep RPM/APK overrides and artifacts untouched. If one static DEB dependency cannot safely cover all supported PHP APIs, stop for the required compatibility decision rather than publishing a partially functional package.
+Add the verified DEB-only `php8.1-grpc` dependency declaration to `packaging/nfpm.yaml` and the matching Sury PHP 8.1 APT repository/runtime setup to `Dockerfile_deb`. Keep RPM/APK overrides and artifacts untouched. DEB PHP 8.2–8.5 artifacts and matrix rows are handled by Task 6.
 
 **Step 4: Run test to verify pass**
 
-Run: `./tools/test/component/test_packages_one_matrix_row_in_docker.sh --matrix_row '<each PHP 8.1-8.5 DEB row>' --packages_dir '<built packages>' --logs_dir "$PWD/_BUILT/grpc_deb_logs"`
+Run: `./tools/test/component/test_packages_one_matrix_row_in_docker.sh --matrix_row '<Sury PHP 8.1 DEB row>' --packages_dir '<built packages>' --logs_dir "$PWD/_BUILT/grpc_deb_logs"`
 
-Expected: each installed DEB resolves its package dependency and the enabled PHP binary reports the `grpc` extension.
+Expected: the installed DEB resolves `php8.1-grpc` and the enabled Sury PHP 8.1 binary reports the `grpc` extension.
 
 **Step 5: Commit**
 
@@ -61,7 +61,7 @@ Expected: each installed DEB resolves its package dependency and the enabled PHP
 
 ### Task 2: Ship the scoped gRPC transport dependency
 
-**Objective:** Include a version-compatible `open-telemetry/transport-grpc` and its provider metadata in every production vendor tree.
+**Objective:** Include a version-compatible `open-telemetry/transport-grpc` and its provider metadata in every production vendor tree, while all DEB packages target Sury PHP 8.1.
 
 **Files:**
 - Modify: `composer.json`
@@ -102,7 +102,7 @@ Expected: all locks validate and both scoped and unscoped package vendor outputs
 
 **Step 1: Establish expected behaviour**
 
-In a process using the installed package with scoped dependencies enabled, `Registry::transportFactory('grpc')` must return the scoped `OTelDistroScoped\OpenTelemetry\Contrib\Grpc\GrpcTransportFactory`, not an unscoped class and not `null`/an unavailable-provider error.
+In a process using the installed DEB with Sury PHP 8.1 and scoped dependencies enabled, `Registry::transportFactory('grpc')` must return the scoped `OTelDistroScoped\OpenTelemetry\Contrib\Grpc\GrpcTransportFactory`, not an unscoped class and not `null`/an unavailable-provider error.
 
 **Step 2: Add or update validation**
 
@@ -126,7 +126,7 @@ Expected: the assertion passes with the built/installed DEB and fails if the tra
 
 ### Task 4: Test declarative OTLP/gRPC trace export through a real receiver
 
-**Objective:** Prove that `otlp_grpc` declarative configuration sends a trace over port 4317 from a packaged DEB install.
+**Objective:** Prove that `otlp_grpc` declarative configuration sends a trace over port 4317 from a packaged DEB install using Sury PHP 8.1.
 
 **Files:**
 - Modify: `tools/test/component/docker_compose_external_services.yml`
@@ -149,7 +149,7 @@ Add the receiver service, readiness handling, environment variables, and a decla
 
 **Step 4: Run test to verify pass**
 
-Run: `OTEL_PHP_TESTS_GROUP=requires_external_services ./tools/test/component/test_packages_one_matrix_row_in_docker.sh --matrix_row '<DEB matrix row>' --packages_dir '<built packages>' --logs_dir "$PWD/_BUILT/grpc_component_logs"`
+Run: `OTEL_PHP_TESTS_GROUP=requires_external_services ./tools/test/component/test_packages_one_matrix_row_in_docker.sh --matrix_row '<Sury PHP 8.1 DEB row>' --packages_dir '<built packages>' --logs_dir "$PWD/_BUILT/grpc_component_logs"`
 
 Expected: the packaged, scoped Distro exports a trace through OTLP/gRPC on 4317; the existing HTTP declarative component test still passes.
 
@@ -170,7 +170,7 @@ Expected: the packaged, scoped Distro exports a trace through OTLP/gRPC on 4317;
 
 **Step 1: Establish expected behaviour**
 
-Document that OTLP/gRPC is opt-in, uses port 4317, needs the package-managed `ext-grpc` dependency, is supported for the proven DEB/PHP matrix only, and is synchronous because background transfer remains OTLP HTTP/protobuf-only.
+Document that all DEB packages target Sury PHP 8.1 and that OTLP/gRPC is opt-in, uses port 4317, needs the package-managed Sury `php8.1-grpc` dependency, and is synchronous because background transfer remains OTLP HTTP/protobuf-only.
 
 **Step 2: Add or update validation**
 
@@ -178,7 +178,7 @@ Cross-check the documented endpoint, `otlp_grpc` YAML shape, PHP version range, 
 
 **Step 3: Write minimal implementation**
 
-Add a concise `otlp_grpc` declarative trace example without changing the HTTP default endpoint/examples. State RPM/APK non-support for this release and link to the upstream configuration schema for unexpanded signal options.
+Add a concise `otlp_grpc` declarative trace example without changing the HTTP default endpoint/examples. State the DEB PHP 8.1-only package boundary and non-support for gRPC on RPM/APK in this release, and link to the upstream configuration schema for unexpanded signal options.
 
 **Step 4: Run test to verify pass**
 
@@ -201,21 +201,21 @@ Expected: PHP checks remain clean; manual review confirms docs do not promise as
 
 **Step 1: Establish expected behaviour**
 
-The validation must use generated package artifacts and cover all PHP minors for the new DEB runtime dependency; RPM/APK remain buildable without gRPC changes.
+The validation must use generated package artifacts and cover the Sury PHP 8.1 DEB runtime dependency. DEB PHP 8.2–8.5 artifacts and matrix rows must not be selected. Existing PHP 8.1–8.5 static/unit and RPM/APK package-build coverage remains in place.
 
 **Step 2: Add or update validation**
 
-Ensure CI/package matrix selection contains a DEB gRPC row for each supported PHP minor, or document a follow-up if the current matrix cannot express that coverage.
+Change the package matrix/workflow selection so it contains only the Sury PHP 8.1 DEB gRPC row and no DEB PHP 8.2–8.5 rows. Retain PHP 8.1–8.5 matrix coverage for RPM/APK and static/unit checks.
 
 **Step 3: Write minimal implementation**
 
-Make only the matrix/workflow adjustment required to execute the new DEB checks; do not expand non-DEB gRPC support.
+Make only the matrix/workflow and supported-version documentation adjustment required to select DEB PHP 8.1 only; do not expand RPM/APK gRPC support.
 
 **Step 4: Run test to verify pass**
 
 Run: `./tools/test/test_php_static_and_unit.sh --php_versions '81 82 83 84 85' --logs_dir "$PWD/_BUILT/unit_tests_logs" && ./tools/build/build_php_code_for_packages.sh --php_versions '81 82 83 84 85' && ./tools/build/build_packages.sh --package_version '<version>' --build_architecture linux-x86-64 --package_goarchitecture amd64 --package_types 'deb rpm apk'`
 
-Expected: static/unit checks, all package builds, DEB gRPC package/component checks, and existing HTTP component coverage pass. Record any Docker-heavy checks not run locally for CI.
+Expected: static/unit checks, PHP 8.1–8.5 RPM/APK package builds, Sury PHP 8.1 DEB gRPC package/component checks, and existing HTTP component coverage pass. No DEB PHP 8.2–8.5 matrix row is selected. Record any Docker-heavy checks not run locally for CI.
 
 **Step 5: Commit**
 

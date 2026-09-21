@@ -37,7 +37,8 @@ function install_package_file() {
             apk add --allow-untrusted "${package_file_full_path}"
             ;;
         deb)
-            dpkg -i "${package_file_full_path}"
+            apt-get update -qq
+            apt-get install --yes "${package_file_full_path}"
             ;;
         rpm)
             rpm -ivh "${package_file_full_path}"

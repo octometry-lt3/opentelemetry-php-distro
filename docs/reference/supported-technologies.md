@@ -73,3 +73,5 @@ Supported PHP versions: `8.1` to `8.5`.
 - PHP runtime metrics (memory, GC - exported automatically via the native async transport)
 
 Background sending (non-blocking export) works with OTLP `http/protobuf` (default). If exporter/protocol changes to unsupported transport (for example gRPC), export becomes synchronous.
+
+OTLP/gRPC extension support is limited to Debian DEB installations using the Sury PHP 8.1 runtime. Those packages declare and resolve the package-managed `php8.1-grpc` dependency. It is not supported for DEB installations using PHP 8.2–8.5, RPM, or APK installations.

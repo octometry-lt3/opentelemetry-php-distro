@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace OTelDistroTests\ComponentTests;
 
 use Composer\Semver\Semver;
+use OpenTelemetry\Contrib\Grpc\GrpcTransportFactory;
 use OpenTelemetry\Distro\VendorDir;
+use OpenTelemetry\SDK\Registry;
 use OTelDistroTests\ComponentTests\Util\AgentBackendComms;
 use OTelDistroTests\ComponentTests\Util\AppCodeContextUtil;
 use OTelDistroTests\ComponentTests\Util\ComponentTestCaseBase;
@@ -30,6 +32,7 @@ use Throwable;
  */
 final class PackagesPhpRequirementTest extends ComponentTestCaseBase
 {
+    private const GRPC_TRANSPORT_FACTORY_CLASS_KEY = 'grpc_transport_factory_class';
     private const INSTALLED_DISTRO_VENDOR_DIR_KEY = 'installed_distro_vendor_dir';
 
     public function testSemverConstraint(): void
@@ -253,5 +256,43 @@ final class PackagesPhpRequirementTest extends ComponentTestCaseBase
     public function testPackagesHaveCorrectPhpVersion(): void
     {
         $this->runAndEscalateLogLevelOnFailure(self::buildDbgDescForTest(__CLASS__, __FUNCTION__), fn() => $this->implTestPackagesHaveCorrectPhpVersion());
+    }
+
+    public function testDebPhp81HasGrpcExtension(): void
+    {
+        if (getenv('OTEL_PHP_TESTS_PACKAGE_TYPE') !== 'deb' || getenv('OTEL_PHP_TESTS_PHP_VERSION') !== '8.1') {
+            self::markTestSkipped('The package-managed gRPC contract applies only to DEB PHP 8.1.');
+        }
+
+        self::assertTrue(extension_loaded('grpc'), 'The package-managed php8.1-grpc extension is not loaded.');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function appCodeForTestDebPhp81ResolvesScopedGrpcTransportFactory(): array
+    {
+        $registryClass = AppCodeContextUtil::adaptClassNameToScoping(Registry::class);
+        $factory = $registryClass::transportFactory('grpc');
+
+        return [self::GRPC_TRANSPORT_FACTORY_CLASS_KEY => $factory::class];
+    }
+
+    public function testDebPhp81ResolvesScopedGrpcTransportFactory(): void
+    {
+        if (getenv('OTEL_PHP_TESTS_PACKAGE_TYPE') !== 'deb' || getenv('OTEL_PHP_TESTS_PHP_VERSION') !== '8.1') {
+            self::markTestSkipped('The package-managed scoped gRPC transport contract applies only to DEB PHP 8.1.');
+        }
+
+        $this->implTestForAppCodeSetsHowFinished(
+            testArgs: new MixedMap(),
+            subAppCode: [__CLASS__, 'appCodeForTestDebPhp81ResolvesScopedGrpcTransportFactory'],
+            additionalAssertCode: function (DebugContextScopeRef $dbgCtx, AgentBackendComms $agentBackendComms, MixedMap $appCodeAuxOutput): void {
+                $resolvedFactoryClass = $appCodeAuxOutput->getString(self::GRPC_TRANSPORT_FACTORY_CLASS_KEY);
+                $expectedFactoryClass = AppCodeContextUtil::adaptClassNameToScoping(GrpcTransportFactory::class);
+                $dbgCtx->add(compact('resolvedFactoryClass', 'expectedFactoryClass'));
+                self::assertSame($expectedFactoryClass, $resolvedFactoryClass);
+            },
+        );
     }
 }

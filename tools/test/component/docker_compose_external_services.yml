@@ -29,12 +29,25 @@ services:
         networks:
             - otel-php-distro-tests-component-network
 
+    otel-php-distro-tests-component-jaeger:
+        image: jaegertracing/all-in-one:1.57
+        environment:
+            - COLLECTOR_OTLP_ENABLED=true
+        healthcheck:
+            test: [ "CMD-SHELL", "wget -q -O - http://127.0.0.1:14269/status > /dev/null" ]
+            timeout: 5s
+            retries: 60
+        networks:
+            - otel-php-distro-tests-component-network
+
     otel-php-distro-tests-component-wait-for-all-services-to-start:
         image: busybox
         depends_on:
             otel-php-distro-tests-component-mysql:
                 condition: service_healthy
             otel-php-distro-tests-component-postgresql:
+                condition: service_healthy
+            otel-php-distro-tests-component-jaeger:
                 condition: service_healthy
 
 networks:
