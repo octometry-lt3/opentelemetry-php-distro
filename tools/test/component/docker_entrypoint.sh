@@ -54,13 +54,38 @@ function install_open_telemetry_php_distro_package () {
     local current_github_workflow_log_group_name="Installing package with OpenTelemetry PHP Distro"
     start_github_workflow_log_group "${current_github_workflow_log_group_name}"
 
-    # Until we add testing for ARM architecture is hardcoded as x86_64
-    local architecture="x86_64"
+    if [[ "${OTEL_PHP_TESTS_INSTALLER_BACKED:-false}" == "true" ]]; then
+        if [[ "${OTEL_PHP_TESTS_INSTALLER_PACKAGE_INSTALLED:-false}" == "true" ]]; then
+            end_github_workflow_log_group "${current_github_workflow_log_group_name}"
+            return
+        fi
 
-    local package_file_full_path
-    package_file_full_path=$(select_otel_package_file /otel_php_distro_tests/packages "${OTEL_PHP_TESTS_PACKAGE_TYPE:?}" "${architecture}")
+        local installer_version
+        # shellcheck disable=SC1091
+        source project.properties
+        installer_version="${version}"
 
-    install_package_file "${package_file_full_path}"
+        local architecture='x86_64'
+        local package_file_full_path
+        package_file_full_path=$(select_otel_package_file /otel_php_distro_tests/packages "${OTEL_PHP_TESTS_PACKAGE_TYPE:?}" "${architecture}")
+        local release_fixture_dir=/release-fixture
+        local release_asset_name="opentelemetry-php-distro_${installer_version}_amd64.deb"
+        mkdir -p "${release_fixture_dir}"
+        cp "${package_file_full_path}" "${release_fixture_dir}/${release_asset_name}"
+        (cd "${release_fixture_dir}" && sha512sum "${release_asset_name}" >"${release_asset_name}.sha512")
+
+        export OTEL_PHP_INSTALL_TEST_RELEASE_BASE_URL="file://${release_fixture_dir}"
+        bash /read_only_repo_root/tools/install/install.sh --version "${installer_version}"
+        export OTEL_PHP_TESTS_INSTALLER_PACKAGE_INSTALLED=true
+    else
+        # Until we add testing for ARM architecture is hardcoded as x86_64
+        local architecture="x86_64"
+
+        local package_file_full_path
+        package_file_full_path=$(select_otel_package_file /otel_php_distro_tests/packages "${OTEL_PHP_TESTS_PACKAGE_TYPE:?}" "${architecture}")
+
+        install_package_file "${package_file_full_path}"
+    fi
 
     end_github_workflow_log_group "${current_github_workflow_log_group_name}"
 }
@@ -204,6 +229,10 @@ function main() {
     cd "${repo_root_dir}/"
     rm -rf composer.json composer.lock ./vendor/
     source "./tools/shared.sh"
+
+    if [[ "${OTEL_PHP_TESTS_INSTALLER_BACKED:-false}" == "true" ]]; then
+        install_open_telemetry_php_distro_package
+    fi
 
     echo 'Before setting PHP_INI_SCAN_DIR'
     print_info_about_environment

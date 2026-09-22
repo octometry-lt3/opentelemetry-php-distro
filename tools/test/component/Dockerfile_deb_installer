@@ -1,0 +1,21 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        composer \
+        git \
+        libpq-dev \
+        libzip-dev \
+        logrotate \
+        procps \
+        rsyslog \
+        php8.1-mysql \
+        php8.1-pgsql \
+        php8.1-zip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /
+
+ENTRYPOINT exec /read_only_repo_root/tools/test/component/docker_entrypoint.sh

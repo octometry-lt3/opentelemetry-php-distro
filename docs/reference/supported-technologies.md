@@ -74,4 +74,4 @@ Supported PHP versions: `8.1` to `8.5`.
 
 Background sending (non-blocking export) works with OTLP `http/protobuf` (default). If exporter/protocol changes to unsupported transport (for example gRPC), export becomes synchronous.
 
-OTLP/gRPC extension support is limited to Debian DEB installations using the Sury PHP 8.1 runtime. Those packages declare and resolve the package-managed `php8.1-grpc` dependency. It is not supported for DEB installations using PHP 8.2–8.5, RPM, or APK installations.
+OTLP/gRPC is opt-in and supported through the release installer on Ubuntu 22.04 amd64 with PHP 8.1 CLI. It uses port `4317` and is synchronous. The installer is the only supported gRPC provisioning path in this release; RPM and APK packages, and other Ubuntu releases or architectures, are not supported for OTLP/gRPC.

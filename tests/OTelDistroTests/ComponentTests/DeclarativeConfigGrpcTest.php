@@ -20,6 +20,14 @@ final class DeclarativeConfigGrpcTest extends ComponentTestCaseBase
 
     public function testDeclarativeConfigGrpcExport(): void
     {
+        if (
+            getenv('OTEL_PHP_TESTS_PACKAGE_TYPE') !== 'deb'
+            || getenv('OTEL_PHP_TESTS_PHP_VERSION') !== '8.1'
+            || getenv('OTEL_PHP_TESTS_INSTALLER_BACKED') !== 'true'
+        ) {
+            self::markTestSkipped('OTLP/gRPC component coverage applies only to the installer-backed DEB PHP 8.1 row.');
+        }
+
         $yamlContent = file_get_contents(self::YAML_TEMPLATE_FILE);
         self::assertNotFalse($yamlContent);
         $endpoint = getenv('OTEL_PHP_TESTS_OTLP_GRPC_RECEIVER_HOST') . ':' . getenv('OTEL_PHP_TESTS_OTLP_GRPC_RECEIVER_PORT');
@@ -57,6 +65,7 @@ final class DeclarativeConfigGrpcTest extends ComponentTestCaseBase
         }
 
         AssertEx::notEmptyArray($traces);
+        self::assertNotEmpty($traces[0]['spans'] ?? [], 'The OTLP/gRPC receiver did not receive a span.');
         $span = $traces[0]['spans'][0] ?? [];
         $process = $traces[0]['processes'][$span['processID']] ?? [];
         self::assertSame(self::EXPECTED_SERVICE_NAME, $process['serviceName'] ?? null);
