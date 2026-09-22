@@ -1,7 +1,7 @@
 ---
-status: in-progress
+status: superseded
 created: 2026-09-21
-task: 5/6
+task: 6/6
 required_gates:
   architect_review: false
   memory_update: true
@@ -10,6 +10,8 @@ required_gates:
 ---
 
 # Enable OTLP/gRPC export in the DEB Distro Implementation plan
+
+> Superseded by [Ubuntu 22.04 PECL gRPC installer](2026-09-22_120000-ubuntu-2204-pecl-grpc-installer.md). The replacement plan removes the DEB's `php8.1-grpc` APT dependency and delivers gRPC through a release-hosted installer that provisions PHP 8.1 and PECL gRPC on Ubuntu 22.04.
 
 **Goal:** Make all Debian-installed, scoped OpenTelemetry PHP Distro packages target Sury PHP 8.1, resolve declarative `otlp_grpc` exporters, and export traces to an OTLP/gRPC receiver, while retaining existing OTLP/HTTP behavior.
 
