@@ -258,15 +258,6 @@ final class PackagesPhpRequirementTest extends ComponentTestCaseBase
         $this->runAndEscalateLogLevelOnFailure(self::buildDbgDescForTest(__CLASS__, __FUNCTION__), fn() => $this->implTestPackagesHaveCorrectPhpVersion());
     }
 
-    public function testDebPhp81HasGrpcExtension(): void
-    {
-        if (getenv('OTEL_PHP_TESTS_PACKAGE_TYPE') !== 'deb' || getenv('OTEL_PHP_TESTS_PHP_VERSION') !== '8.1') {
-            self::markTestSkipped('The package-managed gRPC contract applies only to DEB PHP 8.1.');
-        }
-
-        self::assertTrue(extension_loaded('grpc'), 'The package-managed php8.1-grpc extension is not loaded.');
-    }
-
     /**
      * @return array<string, string>
      */

@@ -15,9 +15,6 @@ overrides:
   deb:
     provides:
     - opentelemetry-php-distro
-    depends:
-    - bash
-    - php8.1-grpc
 
 depends:
 - bash
