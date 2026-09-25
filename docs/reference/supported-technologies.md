@@ -73,3 +73,5 @@ Supported PHP versions: `8.1` to `8.5`.
 - PHP runtime metrics (memory, GC - exported automatically via the native async transport)
 
 Background sending (non-blocking export) works with OTLP `http/protobuf` (default). If exporter/protocol changes to unsupported transport (for example gRPC), export becomes synchronous.
+
+OTLP/gRPC is opt-in and supported through the release installer on Ubuntu 22.04 amd64 with PHP 8.1 CLI. It uses port `4317` and is synchronous. The installer is the only supported gRPC provisioning path in this release; RPM and APK packages, and other Ubuntu releases or architectures, are not supported for OTLP/gRPC.

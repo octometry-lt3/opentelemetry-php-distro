@@ -36,6 +36,34 @@ sudo dpkg -i <package-file>.deb
 sudo apk add --allow-untrusted <package-file>.apk
 ```
 
+### OTLP/gRPC installer (Ubuntu 22.04 amd64 only)
+
+OTLP/gRPC is supported through the release installer for Ubuntu 22.04 amd64. The
+installer provisions PHP 8.1 CLI and the PECL `grpc` extension before installing
+the selected DEB. It is the only supported gRPC provisioning path for this
+release; RPM and APK packages do not support OTLP/gRPC.
+
+The installer defaults to release `0.7.0`. Use `--version <version>` to select a
+different release. Download the installer and the selected DEB checksum before
+running the installer as root:
+
+```bash
+VERSION=0.7.0
+BASE_URL="https://github.com/open-telemetry/opentelemetry-php-distro/releases/download/v${VERSION}"
+DEB="opentelemetry-php-distro_${VERSION}_amd64.deb"
+
+curl -fsSLO "${BASE_URL}/install.sh"
+curl -fsSLO "${BASE_URL}/${DEB}"
+curl -fsSLO "${BASE_URL}/${DEB}.sha512"
+sha512sum --check "${DEB}.sha512"
+sudo bash ./install.sh --version "${VERSION}"
+```
+
+For the default release, omit `--version 0.7.0`. Do not use this installer on
+another Ubuntu release, architecture, or operating system. The installer
+provisions the CLI SAPI; provision any additional PHP SAPI separately if your
+application requires it.
+
 ## Configure exporter
 
 At a minimum, set:

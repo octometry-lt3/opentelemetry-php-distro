@@ -88,7 +88,8 @@ jobs:
           RNOTES=$(./tools/build/get_release_note.sh --release-tag ${TAG_NAME})
           gh release create "${TAG_NAME}" --draft --title "${TAG_NAME}" --repo open-telemetry/opentelemetry-php-distro \
             --notes "${RNOTES}" \
-            ${{ env.BUILT_PACKAGES_DIR }}/*.*
+            ${{ env.BUILT_PACKAGES_DIR }}/*.* \
+            tools/install/install.sh
       - name: Verify sha512 sums
         if: startsWith(github.ref, 'refs/tags')
         run: |
@@ -98,6 +99,8 @@ jobs:
               gh release download "${TAG_NAME}" && break || (echo "Download draft release assets attempt ${attempt}/3 failed. Waiting 60s." && sleep 60)
             done
             ls -l .
+            test -s ./install.sh
+            echo "Verified that the release installer asset is downloadable."
             echo "Verifying that downloaded artifacts pass the downloaded checksums..."
             sha512sum --check ./*.sha512
           popd

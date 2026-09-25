@@ -206,6 +206,28 @@ logger_provider:
 
 For the full YAML schema, see the [OpenTelemetry Configuration Schema](https://github.com/open-telemetry/opentelemetry-configuration/blob/main/schema-docs.md).
 
+### OTLP/gRPC traces (Ubuntu 22.04 amd64 installer)
+
+OTLP/gRPC is opt-in and sends traces synchronously to port `4317`. On Ubuntu
+22.04 amd64, use the release installer described in [Set up OpenTelemetry PHP
+Distro](../getting-started/setup.md) to provision PHP 8.1 CLI and PECL `grpc`
+before installing the DEB. The installer defaults to release `0.7.0`; pass
+`--version <version>` to select another release. RPM and APK packages do not
+support OTLP/gRPC in this release.
+
+```yaml
+file_format: "1.0-rc.2"
+
+tracer_provider:
+  processors:
+    - batch:
+        exporter:
+          otlp_grpc:
+            endpoint: http://localhost:4317
+```
+
+Background transfer remains available only for the default OTLP HTTP/protobuf exporter; gRPC does not use asynchronous transfer. See the [OpenTelemetry Configuration Schema](https://github.com/open-telemetry/opentelemetry-configuration/blob/main/schema-docs.md) for additional signal and exporter options.
+
 ### Limitations
 
 - Central configuration (OpAMP) is not available when file-based configuration is active.

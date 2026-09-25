@@ -73,6 +73,15 @@ function parse_args() {
 function select_Dockerfile_based_on_package_type () {
     package_type="${1:?}"
 
+    if [[ "${OTEL_PHP_TESTS_INSTALLER_BACKED:-false}" == "true" ]]; then
+        [[ "${package_type}" == 'deb' ]] || {
+            echo 'The installer-backed component image supports DEB packages only' >&2
+            exit 1
+        }
+        echo 'Dockerfile_deb_installer'
+        return
+    fi
+
     echo "Dockerfile_${package_type}"
 }
 
