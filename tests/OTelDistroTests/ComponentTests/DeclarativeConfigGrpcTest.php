@@ -42,11 +42,18 @@ final class DeclarativeConfigGrpcTest extends ComponentTestCaseBase
                 self::ensureTransactionSpanEnabled($appCodeHostParams);
                 self::disableTimingDependentFeatures($appCodeHostParams);
                 $appCodeHostParams->setAdditionalEnvVar('OTEL_CONFIG_FILE', $yamlConfigFile);
+                $appCodeHostParams->setAdditionalEnvVar('OTEL_PHP_LOG_LEVEL_STDERR', 'debug');
+                $appCodeHostParams->setAdditionalEnvVar('OTEL_PHP_LOG_DESTINATION', 'stderr');
             }
         );
         $exitCode = $appCodeHost->execAppCode(AppCodeTarget::asRouted([self::class, 'appCodeExportsSpan']));
         $childProcessOutput = self::readChildProcessOutput($appCodeHost->appCodeHostParams);
         self::assertSame(0, $exitCode, "The app-code process failed. Child process stderr/stdout:\n$childProcessOutput");
+        self::assertStringNotContainsString('is not found in descriptor pool', $childProcessOutput);
+        self::assertStringNotContainsString('Export failure', $childProcessOutput);
+        self::assertStringNotContainsString('Span exporter factory not defined', $childProcessOutput);
+        self::assertStringNotContainsString('Error during opentelemetry initialization', $childProcessOutput);
+        self::assertStringNotContainsString('Unhandled export error', $childProcessOutput);
 
         $queryHost = getenv('OTEL_PHP_TESTS_OTLP_GRPC_QUERY_HOST');
         $queryPort = getenv('OTEL_PHP_TESTS_OTLP_GRPC_QUERY_PORT');
@@ -115,10 +122,14 @@ final class DeclarativeConfigGrpcTest extends ComponentTestCaseBase
     {
         $path = ProcessUtil::buildStdErrOutFileFullPath($appCodeHostParams->dbgProcessNamePrefix . '_1');
         if ($path === null || !file_exists($path)) {
-            return '(child-process stderr/stdout log unavailable)';
+            self::fail('The app-code child-process stderr/stdout log is unavailable.');
         }
 
         $contents = file_get_contents($path);
-        return $contents === false ? '(unable to read child-process stderr/stdout log)' : $contents;
+        if ($contents === false) {
+            self::fail('The app-code child-process stderr/stdout log could not be read.');
+        }
+
+        return $contents;
     }
 }

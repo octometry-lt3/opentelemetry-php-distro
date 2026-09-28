@@ -123,6 +123,70 @@ $restoreUnscopedExtensionFunctions = static function (string $filePath, string $
     return $content;
 };
 
+// Generated OTLP descriptors do not define FileOptions.php_namespace (field 41).
+// The visible OpenTelemetry.Proto value is csharp_namespace (field 37), so the
+// protobuf runtime derives Opentelemetry\Proto\... from the package name. Scoper
+// changes the generated classes but not this runtime-derived name. Scope only
+// that runtime mapping in the scoped protobuf helper; the unscoped helper and
+// protobuf package identities remain unchanged.
+$scopeOtlpDescriptorClasses = static function (string $filePath, string $scoperPrefix, string $content): string {
+    if (!str_ends_with($filePath, '/google/protobuf/src/Google/Protobuf/Internal/GPBUtil.php')) {
+        return $content;
+    }
+    if (!str_contains($content, 'namespace ' . $scoperPrefix . '\\Google\\Protobuf\\Internal')) {
+        return $content;
+    }
+    $fixMarker = 'OTEL scoped protobuf descriptor class fix';
+    $fixMarkerCount = substr_count($content, $fixMarker);
+    if ($fixMarkerCount > 1) {
+        throw new \RuntimeException('php-scoper patcher: duplicate OTLP descriptor class fix marker in ' . $filePath);
+    }
+    if ($fixMarkerCount === 1) {
+        return $content;
+    }
+
+    $marker = "    }\n    public static function combineInt32ToInt64";
+    if (substr_count($content, $marker) !== 1) {
+        throw new \RuntimeException(
+            'php-scoper patcher: expected exactly one GPBUtil shape marker while scoping OTLP descriptors in ' . $filePath
+        );
+    }
+    $phpNamespacePattern = '~^([ \\t]*)'
+        . 'if\\s*\\(\\s*!\\s*(\\\\)?is_null\\s*\\(\\s*\\$option\\s*\\)'
+        . '\\s*&&\\s*\\$option->hasPhpNamespace\\s*\\(\\s*\\)\\s*\\)'
+        . '\\s*\\{[ \\t]*\\r?$~m';
+    if (preg_match_all($phpNamespacePattern, $content, $phpNamespaceMatches) !== 1) {
+        throw new \RuntimeException(
+            'php-scoper patcher: expected exactly one php_namespace branch while scoping OTLP descriptors in ' . $filePath
+        );
+    }
+    $phpNamespaceMarker = $phpNamespaceMatches[0][0];
+    $phpNamespaceIndent = $phpNamespaceMatches[1][0];
+
+    $scopedPrefix = $scoperPrefix . '\\';
+    $scopedPrefixLiteral = var_export($scopedPrefix, true);
+    $phpNamespaceGuard = $phpNamespaceIndent . "if (\$option !== null && \$option->hasPhpNamespace() && \str_starts_with(\$package, 'opentelemetry.')) {\n"
+        . $phpNamespaceIndent . "    throw new \\RuntimeException('OTLP generated descriptors unexpectedly define php_namespace.');\n"
+        . $phpNamespaceIndent . "}\n";
+    $fix = "        // {$fixMarker}: OTLP files use package-derived PHP names.\n"
+        . "        if (\str_starts_with(\$package, 'opentelemetry.')) {\n"
+        . "            \$otelScopedClassPrefix = {$scopedPrefixLiteral};\n"
+        . "            \$scopeClass = static function (mixed \$class) use (\$otelScopedClassPrefix): mixed {\n"
+        . "                return \is_string(\$class) && \$class !== '' && !\str_starts_with(\$class, \$otelScopedClassPrefix)\n"
+        . "                    ? \$otelScopedClassPrefix . \$class\n"
+        . "                    : \$class;\n"
+        . "            };\n"
+        . "            \$classname = \$scopeClass(\$classname);\n"
+        . "            \$legacy_classname = \$scopeClass(\$legacy_classname);\n"
+        . "            \$previous_classname = \$scopeClass(\$previous_classname);\n"
+        . "        }\n";
+    $replacement = $fix . "    }\n    public static function combineInt32ToInt64";
+
+    $content = str_replace($phpNamespaceMarker, $phpNamespaceGuard . $phpNamespaceMarker, $content);
+
+    return str_replace($marker, $replacement, $content);
+};
+
 return [
     'prefix' => $prefix,
     // User-facing namespaces hooked by auto-instrumentation must NOT be prefixed.
@@ -186,6 +250,7 @@ return [
     ],
     'patchers' => [
         $restoreUnscopedExtensionFunctions,
+        $scopeOtlpDescriptorClasses,
         $primeAutoloadBeforeHook,
     ],
 ];

@@ -44,6 +44,7 @@ final class SpanExporter implements SpanExporterInterface
                     }
 
                     $serviceResponse = new ExportTraceServiceResponse();
+                    $serviceResponse->mergeFromString($payload);
 
                     /** @noinspection DuplicatedCode */
                     $partialSuccess = $serviceResponse->getPartialSuccess();
