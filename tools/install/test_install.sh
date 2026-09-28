@@ -67,8 +67,18 @@ version="$1"
 bash /installer/install.sh --version "${version}"
 
 test "$(dpkg-query --showformat='${Status}' --show opentelemetry-php-distro 2>/dev/null)" = 'install ok installed'
-test "$(php -r "var_export(extension_loaded('grpc'));" 2>/dev/null)" = 'true'
-test "$(php -r "var_export(extension_loaded('opentelemetry_distro'));" 2>/dev/null)" = 'true'
+test "$(php8.1 -r "var_export(extension_loaded('grpc'));" 2>/dev/null)" = 'true'
+if ! php8.1 --ri grpc >/dev/null; then
+    echo 'php8.1 --ri grpc failed after installer run' >&2
+    dpkg-query --showformat='Installed php8.1-grpc version: ${Version}\n' --show php8.1-grpc >&2 || true
+    exit 1
+fi
+test "$(php8.1 -r "var_export(extension_loaded('opentelemetry_distro'));" 2>/dev/null)" = 'true'
+
+# Re-running the installer must preserve the same verified, enabled setup.
+bash /installer/install.sh --version "${version}"
+test "$(php8.1 -r "var_export(extension_loaded('grpc'));" 2>/dev/null)" = 'true'
+php8.1 --ri grpc >/dev/null
 CONTAINER_SCRIPT
 
 run_rejection_test() {

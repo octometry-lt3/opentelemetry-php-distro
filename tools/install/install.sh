@@ -2,8 +2,11 @@
 set -euo pipefail
 
 readonly DEFAULT_VERSION='0.7.0'
-readonly GRPC_VERSION='1.66.0'
 readonly RELEASES_URL='https://github.com/open-telemetry/opentelemetry-php-distro/releases/download'
+readonly PPA_KEY_FINGERPRINT='14AA40EC0831756756D7F66C4F4EA0AAE5267A6C'
+readonly PPA_KEY_URL='https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x14AA40EC0831756756D7F66C4F4EA0AAE5267A6C'
+readonly PPA_KEYRING='/usr/share/keyrings/ppa_ondrej_php.gpg'
+readonly PPA_SOURCE='/etc/apt/sources.list.d/ppa_ondrej_php.list'
 
 usage() {
     cat <<'EOF'
@@ -59,31 +62,46 @@ command -v dpkg >/dev/null 2>&1 || die 'dpkg is required'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install --yes --no-install-recommends \
-    autoconf \
-    build-essential \
     ca-certificates \
     curl \
-    libssl-dev \
-    pkg-config \
-    php8.1-cli \
-    php8.1-dev \
-    php-pear \
-    zlib1g-dev
+    gnupg
 
-if ! php8.1 -r 'exit(extension_loaded("grpc") ? 0 : 1);'; then
-    printf '\n' | pecl install "grpc-${GRPC_VERSION}"
-fi
-
-mkdir -p /etc/php/8.1/mods-available
-printf '%s\n' 'extension=grpc.so' >/etc/php/8.1/mods-available/grpc.ini
-phpenmod -v 8.1 grpc
-php8.1 -r 'extension_loaded("grpc") || exit(1);'
-
-tmp_dir=$(mktemp -d)
+key_dir=$(mktemp -d)
+tmp_dir=''
 cleanup() {
-    rm -rf "${tmp_dir}"
+    rm -rf "${key_dir}"
+    [[ -z "${tmp_dir}" ]] || rm -rf "${tmp_dir}"
 }
 trap cleanup EXIT
+
+curl -fsSL "${PPA_KEY_URL}" -o "${key_dir}/ppa.key"
+gpg --batch --dearmor <"${key_dir}/ppa.key" >"${key_dir}/ppa.gpg"
+key_fingerprint=$(gpg --show-keys --with-colons "${key_dir}/ppa.gpg" \
+    | awk -F: '$1 == "fpr" {print toupper($10); exit}')
+[[ "${key_fingerprint}" == "${PPA_KEY_FINGERPRINT}" ]] \
+    || die "unexpected PPA signing key fingerprint: ${key_fingerprint:-missing}"
+install -D -m 0644 "${key_dir}/ppa.gpg" "${PPA_KEYRING}"
+printf '%s\n' \
+    'deb [signed-by=/usr/share/keyrings/ppa_ondrej_php.gpg] https://ppa.launchpadcontent.net/ondrej/php/ubuntu jammy main' \
+    >"${PPA_SOURCE}"
+
+apt-get update
+apt-get install --yes --no-install-recommends php8.1-cli php8.1-grpc
+
+phpenmod -v 8.1 grpc
+if ! php8.1 --ri grpc >/dev/null; then
+    echo 'PHP 8.1 gRPC extension failed to load.' >&2
+    dpkg-query --showformat='Installed php8.1-grpc version: ${Version}\n' --show php8.1-grpc >&2 || true
+    php8.1 --ri grpc >&2 || true
+    die 'php8.1 --ri grpc failed'
+fi
+php8.1 -r 'extension_loaded("grpc") || exit(1);' \
+    || {
+        dpkg-query --showformat='Installed php8.1-grpc version: ${Version}\n' --show php8.1-grpc >&2 || true
+        die 'PHP 8.1 CLI does not load the gRPC extension'
+    }
+
+tmp_dir=$(mktemp -d)
 
 asset_name="opentelemetry-php-distro_${version}_amd64.deb"
 release_base_url="${RELEASES_URL}/v${version}"
