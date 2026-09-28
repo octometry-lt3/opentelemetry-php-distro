@@ -38,14 +38,20 @@ sudo apk add --allow-untrusted <package-file>.apk
 
 ### OTLP/gRPC installer (Ubuntu 22.04 amd64 only)
 
-OTLP/gRPC is supported through the release installer for Ubuntu 22.04 amd64. The
-installer provisions PHP 8.1 CLI and the PECL `grpc` extension before installing
-the selected DEB. It is the only supported gRPC provisioning path for this
-release; RPM and APK packages do not support OTLP/gRPC.
+The upcoming OTLP/gRPC installer supports only Ubuntu 22.04 amd64 with the
+PHP 8.1 CLI. Ubuntu Jammy's official archives do not provide `php8.1-grpc`, so
+the installer adds the Ondřej Surý Jammy PPA
+(`https://ppa.launchpadcontent.net/ondrej/php/ubuntu`), using a dedicated
+`/usr/share/keyrings/ppa_ondrej_php.gpg` keyring and `signed-by`. It verifies
+the signing-key fingerprint
+`14AA40EC0831756756D7F66C4F4EA0AAE5267A6C`, then installs and enables the
+PPA's `php8.1-grpc` package before installing the selected DEB. The DEB does
+not add this repository or depend on that package. RPM and APK packages do not
+support OTLP/gRPC.
 
-The installer defaults to release `0.7.0`. Use `--version <version>` to select a
-different release. Download the installer and the selected DEB checksum before
-running the installer as root:
+The unreleased installer currently defaults to `0.7.0`; use `--version
+<version>` to select a release explicitly. Download the installer and the
+selected DEB checksum before running the installer as root:
 
 ```bash
 VERSION=0.7.0
@@ -62,7 +68,9 @@ sudo bash ./install.sh --version "${VERSION}"
 For the default release, omit `--version 0.7.0`. Do not use this installer on
 another Ubuntu release, architecture, or operating system. The installer
 provisions the CLI SAPI; provision any additional PHP SAPI separately if your
-application requires it.
+application requires it. This PPA-backed path is the only supported gRPC
+provisioning path for the upcoming release; it does not change the current
+`0.7.0` release contract.
 
 ## Configure exporter
 
