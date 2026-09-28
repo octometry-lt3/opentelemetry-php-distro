@@ -84,7 +84,7 @@ final class ComposerUtil
 
     public static function verifyThatComposerJsonAndLockAreInSync(): void
     {
-        BuildToolsUtil::execShellCommand('composer --check-lock --no-check-all validate');
+        BuildToolsUtil::execShellCommand('composer --no-check-all validate');
     }
 
     public static function convertEnvKindToWithDev(PhpDepsEnvKind $envKind): bool

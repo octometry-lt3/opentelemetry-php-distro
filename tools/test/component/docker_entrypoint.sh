@@ -2,6 +2,9 @@
 set -e -o pipefail
 #set -x
 
+# shellcheck disable=SC1091
+source /read_only_repo_root/tools/shared.sh
+
 function print_info_about_environment () {
     echo "Current directory: ${PWD}"
 
@@ -62,7 +65,7 @@ function install_open_telemetry_php_distro_package () {
 
         local installer_version
         # shellcheck disable=SC1091
-        source project.properties
+        source /read_only_repo_root/project.properties
         installer_version="${version}"
 
         local architecture='x86_64'

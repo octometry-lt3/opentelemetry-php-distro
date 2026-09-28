@@ -132,10 +132,7 @@
             "composer run-script -- run_unit_tests"
         ],
         "run_component_tests": [
-            "@putenv OTEL_PHP_ENABLED=false",
-            "@putenv OTEL_PHP_DISABLED_INSTRUMENTATIONS=all",
-            "@putenv OTEL_PHP_AUTOLOAD_ENABLED=false",
-            "phpunit -c phpunit_component_tests.xml"
+            "OTEL_PHP_ENABLED=false OTEL_PHP_DISABLED_INSTRUMENTATIONS=all OTEL_PHP_AUTOLOAD_ENABLED=false phpunit -c phpunit_component_tests.xml"
         ]
     }
 }
