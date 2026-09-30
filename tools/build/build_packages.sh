@@ -71,6 +71,11 @@ if [[ -z "${PACKAGE_VERSION+x}" ]] || [[ -z "${BUILD_ARCHITECTURE+x}" ]] || [[ -
     exit 1
 fi
 
+./tools/build/verify_package_embedded_versions.sh \
+    --build_architecture "${BUILD_ARCHITECTURE}" \
+    --php-code-dir "${PWD}/_BUILT/php_code_for_packages" \
+    --native-build-dir "${PWD}/prod/native/_build"
+
 sanitize_package_version_for_type() {
     local version="${1:?}"
     local pkg_type="${2:?}"
