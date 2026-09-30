@@ -14,6 +14,7 @@ use OTelDistroTests\Util\AssertEx;
 use OTelDistroTests\Util\DebugContextScopeRef;
 use OTelDistroTests\Util\IterableUtil;
 use OTelDistroTests\Util\MixedMap;
+use RuntimeException;
 use OpenTelemetry\SemConv\Attributes\ServiceAttributes;
 use OpenTelemetry\SemConv\Incubating\Attributes\TelemetryIncubatingAttributes;
 
@@ -24,6 +25,7 @@ final class DeclarativeConfigTest extends ComponentTestCaseBase
 {
     private const YAML_TEMPLATE_FILE = __DIR__ . '/TestData/declarative_config_test.yaml';
     private const EXPECTED_SERVICE_NAME = 'declarative-config-component-test';
+    private const EXPECTED_TENANT_ID = 'declarative-config-component-test-tenant';
     private const EXPECTED_CUSTOM_ATTRIBUTE_VALUE = 'test-value-from-yaml';
 
     private function buildYamlConfigFile(): string
@@ -50,13 +52,18 @@ final class DeclarativeConfigTest extends ComponentTestCaseBase
                 self::ensureTransactionSpanEnabled($appCodeHostParams);
                 self::disableTimingDependentFeatures($appCodeHostParams);
                 $appCodeHostParams->setAdditionalEnvVar('OTEL_CONFIG_FILE', $yamlConfigFile);
+                $appCodeHostParams->setAdditionalEnvVar('OTEL_SERVICE_NAME', self::EXPECTED_SERVICE_NAME);
+                $appCodeHostParams->setAdditionalEnvVar('DEPLOYMENT_TENANT_ID', self::EXPECTED_TENANT_ID);
             }
         );
 
         self::implTestForAppCodeSetsHowFinished(
             testArgs: new MixedMap([]),
-            subAppCode: [__CLASS__, 'appCodeEmpty'],
-            additionalAssertCode: function (DebugContextScopeRef $dbgCtx, AgentBackendComms $agentBackendComms): void {
+            subAppCode: [self::class, 'appCodeInspectLoggerProvider'],
+            additionalAssertCode: function (DebugContextScopeRef $dbgCtx, AgentBackendComms $agentBackendComms, MixedMap $appCodeAuxOutput): void {
+                $resourceAttributes = $appCodeAuxOutput->getArray('loggerProviderResourceAttributes');
+                self::assertSame(self::EXPECTED_SERVICE_NAME, $resourceAttributes['service.name'] ?? null);
+                self::assertSame(self::EXPECTED_TENANT_ID, $resourceAttributes['saas.tenant.id'] ?? null);
                 $resources = IterableUtil::toList($agentBackendComms->resources());
                 $dbgCtx->add(compact('resources'));
                 AssertEx::isPositiveInt(count($resources));
@@ -74,6 +81,36 @@ final class DeclarativeConfigTest extends ComponentTestCaseBase
                 }
             }
         );
+    }
+
+    /** @return array<string, mixed> */
+    public static function appCodeInspectLoggerProvider(): array
+    {
+        $globalsClass = 'OTelDistroScoped\\OpenTelemetry\\API\\Globals';
+        if (!class_exists($globalsClass)) {
+            throw new RuntimeException('The scoped OpenTelemetry API Globals class is unavailable.');
+        }
+        /** @var class-string<\OpenTelemetry\API\Globals> $globalsClass */
+        $loggerProvider = $globalsClass::loggerProvider();
+        if (!str_starts_with($loggerProvider::class, 'OTelDistroScoped\\')) {
+            throw new RuntimeException('The scoped OpenTelemetry API did not return a scoped logger provider.');
+        }
+        if (!method_exists($loggerProvider, 'forceFlush') || $loggerProvider->forceFlush() !== true) {
+            throw new RuntimeException('The scoped logger provider did not flush successfully.');
+        }
+
+        foreach ((new \ReflectionObject($loggerProvider))->getProperties() as $property) {
+            $property->setAccessible(true);
+            $value = $property->getValue($loggerProvider);
+            if (is_object($value) && method_exists($value, 'getResource')) {
+                return ['loggerProviderResourceAttributes' => $value->getResource()->getAttributes()->toArray()];
+            }
+            if (is_object($value) && method_exists($value, 'getAttributes') && str_ends_with($property->getName(), 'resource')) {
+                return ['loggerProviderResourceAttributes' => $value->getAttributes()->toArray()];
+            }
+        }
+
+        throw new RuntimeException('The scoped logger provider resource was unavailable.');
     }
 
     public function testDeclarativeConfigResourceAttributes(): void
