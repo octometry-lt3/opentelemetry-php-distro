@@ -1,11 +1,13 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Self-contained regression runner for the scoped OTLP/gRPC descriptor and response path.
  * It consumes already-built fixtures without Composer installation and only changes a temporary copy.
  */
+
+// phpcs:ignoreFile PSR1.Files.SideEffects
+
+declare(strict_types=1);
 
 const PREFIX = 'OTelDistroScoped';
 
@@ -177,7 +179,7 @@ function assertDescriptorNames(): void
             return '';
         }
     };
-    $file = new class($option) {
+    $file = new class ($option) {
         public function __construct(private readonly object $option)
         {
         }
@@ -207,7 +209,7 @@ function assertDescriptorNames(): void
         fail('Scoped descriptor class names were not prefixed as expected.');
     }
 
-    $unscopedFile = new class($option) {
+    $unscopedFile = new class ($option) {
         public function __construct(private readonly object $option)
         {
         }
@@ -354,7 +356,7 @@ function runExporterCases(string $vendor): void
         'malformed response' => ["\x0a\x01", false],
     ];
     foreach ($cases as $name => [$payload, $expected]) {
-        $transport = new class($payload) implements \OpenTelemetry\SDK\Common\Export\TransportInterface {
+        $transport = new class ($payload) implements \OpenTelemetry\SDK\Common\Export\TransportInterface {
             public function __construct(private mixed $payload)
             {
             }
