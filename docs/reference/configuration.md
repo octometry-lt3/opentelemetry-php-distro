@@ -206,6 +206,35 @@ logger_provider:
 
 For the full YAML schema, see the [OpenTelemetry Configuration Schema](https://github.com/open-telemetry/opentelemetry-configuration/blob/main/schema-docs.md).
 
+### OTLP/gRPC traces (Ubuntu 22.04 amd64 installer)
+
+OTLP/gRPC is opt-in and sends traces synchronously to port `4317`. On Ubuntu
+22.04 amd64, use the upcoming release installer described in [Set up
+OpenTelemetry PHP Distro](../getting-started/setup.md). It adds the Ondřej
+Surý Jammy PPA (`https://ppa.launchpadcontent.net/ondrej/php/ubuntu`), verifies
+key fingerprint `14AA40EC0831756756D7F66C4F4EA0AAE5267A6C` in its dedicated
+`/usr/share/keyrings/ppa_ondrej_php.gpg` keyring, and installs the PPA's
+`php8.1-grpc` package before the DEB. It does not come from Ubuntu's official
+archives, and the DEB does not configure the PPA. The packaged
+`open-telemetry/transport-grpc` dependency remains scoped and gRPC stays
+opt-in. The unreleased installer currently defaults to `0.7.0`; pass
+`--version <version>` to select another release. RPM and APK packages do not
+support OTLP/gRPC, and this contract does not apply to other Ubuntu releases,
+architectures, or PHP minors.
+
+```yaml
+file_format: "1.0-rc.2"
+
+tracer_provider:
+  processors:
+    - batch:
+        exporter:
+          otlp_grpc:
+            endpoint: http://localhost:4317
+```
+
+Background transfer remains available only for the default OTLP HTTP/protobuf exporter; gRPC does not use asynchronous transfer. See the [OpenTelemetry Configuration Schema](https://github.com/open-telemetry/opentelemetry-configuration/blob/main/schema-docs.md) for additional signal and exporter options.
+
 ### Limitations
 
 - Central configuration (OpAMP) is not available when file-based configuration is active.

@@ -96,12 +96,16 @@ else
     UNIT_TESTS="ctest --preset ${BUILD_ARCHITECTURE}-release --verbose"
 fi
 
+GITHUB_SHA_ENV=()
+if [ -n "${GITHUB_SHA+x}" ]; then
+    GITHUB_SHA_ENV=(-e "GITHUB_SHA=${GITHUB_SHA}")
+fi
+
 set -x
 
 docker run --rm -t ${INTERACTIVE} ${USERID} -v ${PWD}:/source \
     "${CONAN_HOME_MP[@]}" \
+    "${GITHUB_SHA_ENV[@]}" \
     -w /source/prod/native \
-    -e GITHUB_SHA=${GITHUB_SHA} \
     otel/opentelemetry-php-distro-dev:native-build-${BUILD_ARCHITECTURE}-gcc15.2.0-v0.0.2-conancache-v0.0.2 \
     sh -c "id && echo CONAN_HOME: \$CONAN_HOME && ${CONFIGURE} cmake --build --preset ${BUILD_ARCHITECTURE}-release ${NCPU} && ${UNIT_TESTS}"
-

@@ -11,7 +11,8 @@
  *    native OTLP serializer/transport shadowing - runs before sdk/_autoload.php or any
  *    instrumentation's _register.php file.
  *
- * 2. Reorders open-telemetry/exporter-otlp/_register.php before open-telemetry/sdk/_autoload.php.
+ * 2. Reorders open-telemetry/exporter-otlp/_register.php and
+ *    open-telemetry/transport-grpc/_register.php before open-telemetry/sdk/_autoload.php.
  *    Composer's natural ordering puts a package's own dependencies first, so sdk/_autoload.php (a
  *    dependency of exporter-otlp) normally runs before exporter-otlp/_register.php. If an
  *    instrumentation then triggers eager SDK initialization, the OTLP span/metric/log exporter
@@ -93,21 +94,23 @@ $prependEarlySetupEntry(
     "public static \\\$files = array\\s*\\("
 );
 
-// --- Fix 2: Reorder exporter-otlp/_register.php before sdk/_autoload.php ---
+// --- Fix 2: Reorder provider registrations before sdk/_autoload.php ---
 
-// Locates the array entry ('<32-hex-hash>' => <expr>,) whose value contains $marker and returns
-// [entryStartOffset, entryTextIncludingTrailingComma], or null if not found. Composer emits these
+// Locates the array entry ('<key>' => <expr>,) whose value contains $marker and returns
+// [entryStartOffset, sourceEntryText, insertionEntryText], or null if not found. Composer emits these
 // files with one entry per line, but php-scoper's own generator emits the whole array as a single
-// line - so this works off entry boundaries (the preceding hash key and the following comma; the
-// expressions themselves never contain a literal comma) rather than assuming a fixed line/separator
-// structure.
+// line - so this works off entry boundaries (the preceding quoted key and the following comma; the
+// expressions themselves never contain a literal comma) rather than assuming a fixed
+// line/separator structure. The key is intentionally not restricted to Composer's usual md5 shape:
+// the scoped gRPC repair inserts a synthetic files-autoload entry, and this keeps the ordering fix
+// coupled to the actual Composer entry shape rather than to how its key was generated.
 $findEntryContaining = static function (string $content, string $marker): ?array {
     $markerPos = strpos($content, $marker);
     if ($markerPos === false) {
         return null;
     }
 
-    if (!preg_match_all("/'[0-9a-f]{32}'\\s*=>/", $content, $matches, PREG_OFFSET_CAPTURE)) {
+    if (!preg_match_all("/(['\"])[^'\"]+\\1\\s*=>/", $content, $matches, PREG_OFFSET_CAPTURE)) {
         return null;
     }
     $entryStart = null;
@@ -122,16 +125,39 @@ $findEntryContaining = static function (string $content, string $marker): ?array
         return null;
     }
 
-    $commaPos = strpos($content, ',', $markerPos + strlen($marker));
-    if ($commaPos === false) {
+    // Bound the search to the current files array. A final php-scoper entry may have no comma,
+    // while an unbounded search would otherwise consume a comma from a later static array.
+    $nextEntryStart = null;
+    foreach ($matches[0] as $match) {
+        $offset = (int) $match[1];
+        if ($offset > $entryStart) {
+            $nextEntryStart = $offset;
+            break;
+        }
+    }
+    $arrayEnd = strpos($content, ');', $markerPos + strlen($marker));
+    if ($arrayEnd === false) {
         return null;
     }
-    $entryEnd = $commaPos + 1; // include the trailing comma
 
-    return [$entryStart, substr($content, $entryStart, $entryEnd - $entryStart)];
+    $entryBoundary = $nextEntryStart === null
+        ? $arrayEnd
+        : min($nextEntryStart, $arrayEnd);
+    $commaPos = strpos($content, ',', $markerPos + strlen($marker));
+    if ($commaPos !== false && $commaPos < $entryBoundary) {
+        $entryEnd = $commaPos + 1; // include the trailing comma
+    } else {
+        // PHP permits the final array entry to omit its comma. Add one because this entry is
+        // inserted before another entry below.
+        $entryText = rtrim(substr($content, $entryStart, $entryBoundary - $entryStart));
+        return [$entryStart, $entryText, $entryText . ','];
+    }
+
+    $entryText = substr($content, $entryStart, $entryEnd - $entryStart);
+    return [$entryStart, $entryText, $entryText];
 };
 
-$reorderAutoloadEntries = static function (string $filePath, string $pathToMove, string $insertBefore) use ($findEntryContaining): void {
+$reorderAutoloadEntries = static function (string $filePath, string $pathToMove, string $insertBefore, bool $required = false) use ($findEntryContaining): void {
     if (!is_file($filePath)) {
         fwrite(STDERR, "File does not exist (skipping reorder): $filePath\n");
         return;
@@ -150,6 +176,10 @@ $reorderAutoloadEntries = static function (string $filePath, string $pathToMove,
     $insertBeforePos = strpos($content, $insertBeforeMarker);
 
     if ($pathToMovePos === false || $insertBeforePos === false) {
+        if ($required) {
+            fwrite(STDERR, "Required autoload markers '$pathToMove' and '$insertBefore' not found in: $filePath\n");
+            exit(1);
+        }
         fwrite(STDOUT, "Skipping reorder (markers not found) in: $filePath\n");
         return;
     }
@@ -164,9 +194,9 @@ $reorderAutoloadEntries = static function (string $filePath, string $pathToMove,
         fwrite(STDERR, "Cannot find entry bounds for '$pathToMove' in: $filePath\n");
         exit(1);
     }
-    [$movedEntryStart, $movedEntryText] = $movedEntry;
+    [$movedEntryStart, $movedEntrySourceText, $movedEntryInsertionText] = $movedEntry;
 
-    $newContent = substr($content, 0, $movedEntryStart) . substr($content, $movedEntryStart + strlen($movedEntryText));
+    $newContent = substr($content, 0, $movedEntryStart) . substr($content, $movedEntryStart + strlen($movedEntrySourceText));
 
     $insertBeforeEntry = $findEntryContaining($newContent, $insertBeforeMarker);
     if ($insertBeforeEntry === null) {
@@ -175,7 +205,7 @@ $reorderAutoloadEntries = static function (string $filePath, string $pathToMove,
     }
     [$insertBeforeEntryStart] = $insertBeforeEntry;
 
-    $newContent = substr($newContent, 0, $insertBeforeEntryStart) . $movedEntryText . substr($newContent, $insertBeforeEntryStart);
+    $newContent = substr($newContent, 0, $insertBeforeEntryStart) . $movedEntryInsertionText . substr($newContent, $insertBeforeEntryStart);
 
     if ($newContent === $content) {
         fwrite(STDERR, "Reorder had no effect in: $filePath\n");
@@ -199,4 +229,16 @@ $reorderAutoloadEntries(
     $composerDir . 'autoload_static.php',
     '/open-telemetry/exporter-otlp/_register.php',
     '/open-telemetry/sdk/_autoload.php'
+);
+$reorderAutoloadEntries(
+    $composerDir . 'autoload_files.php',
+    '/open-telemetry/transport-grpc/_register.php',
+    '/open-telemetry/sdk/_autoload.php',
+    true
+);
+$reorderAutoloadEntries(
+    $composerDir . 'autoload_static.php',
+    '/open-telemetry/transport-grpc/_register.php',
+    '/open-telemetry/sdk/_autoload.php',
+    true
 );

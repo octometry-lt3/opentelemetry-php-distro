@@ -36,6 +36,41 @@ sudo dpkg -i <package-file>.deb
 sudo apk add --allow-untrusted <package-file>.apk
 ```
 
+### OTLP/gRPC installer (Ubuntu 22.04 amd64 only)
+
+The OTLP/gRPC installer supports only Ubuntu 22.04 amd64 with the
+PHP 8.1 CLI. Ubuntu Jammy's official archives do not provide `php8.1-grpc`, so
+the installer adds the Ondřej Surý Jammy PPA
+(`https://ppa.launchpadcontent.net/ondrej/php/ubuntu`), using a dedicated
+`/usr/share/keyrings/ppa_ondrej_php.gpg` keyring and `signed-by`. It verifies
+the signing-key fingerprint
+`14AA40EC0831756756D7F66C4F4EA0AAE5267A6C`, then installs and enables the
+PPA's `php8.1-grpc` package before installing the selected DEB. The DEB does
+not add this repository or depend on that package. RPM and APK packages do not
+support OTLP/gRPC.
+
+The installer defaults to `0.7.1`; use `--version
+<version>` to select a release explicitly. Download the installer and the
+selected DEB checksum before running the installer as root:
+
+```bash
+VERSION=0.7.1
+BASE_URL="https://github.com/octometry-lt3/opentelemetry-php-distro/releases/download/v${VERSION}"
+DEB="opentelemetry-php-distro_${VERSION}_amd64.deb"
+
+curl -fsSLO "${BASE_URL}/install.sh"
+curl -fsSLO "${BASE_URL}/${DEB}"
+curl -fsSLO "${BASE_URL}/${DEB}.sha512"
+sha512sum --check "${DEB}.sha512"
+sudo bash ./install.sh --version "${VERSION}"
+```
+
+For the default release, omit `--version`. Do not use this installer on
+another Ubuntu release, architecture, or operating system. The installer
+provisions the CLI SAPI; provision any additional PHP SAPI separately if your
+application requires it. This PPA-backed path is the only supported gRPC
+provisioning path; it does not change the DEB's package dependency contract.
+
 ## Configure exporter
 
 At a minimum, set:

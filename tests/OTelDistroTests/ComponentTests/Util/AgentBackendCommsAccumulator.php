@@ -63,6 +63,7 @@ final class AgentBackendCommsAccumulator implements LoggableInterface
     {
         return match ($requestRaw->signalType) {
             OTelSignalType::trace => IntakeTraceDataRequest::deserializeFromRaw($requestRaw),
+            OTelSignalType::log => IntakeLogsDataRequest::deserializeFromRaw($requestRaw),
             default => throw new ComponentTestsInfraException('Unexpected OTel signal type: ' . $requestRaw->signalType->name),
         };
     }

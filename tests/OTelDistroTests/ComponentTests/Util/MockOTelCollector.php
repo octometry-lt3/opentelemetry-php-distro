@@ -35,10 +35,10 @@ final class MockOTelCollector extends TestInfraHttpServerProcessBase
     public const MOCK_API_URI_PREFIX = '/mock_OTel_Collector_API/';
     private const INTAKE_TRACE_DATA_URI_PATH = '/v1/traces';
     /**
-     * Metrics/logs are not deserialized/accumulated by AgentBackendCommsAccumulator (trace-only) - these
-     * paths exist so intake requests for signals the distro emits incidentally (e.g. runtime metrics
-     * flushed on request shutdown) are acknowledged instead of falling through and crashing on the
-     * missing spawnedProcessInternalId header that only real telemetry intake requests are exempt from.
+     * Metrics are not deserialized/accumulated; this path exists so intake requests for signals the distro
+     * emits incidentally (e.g. runtime metrics flushed on request shutdown) are acknowledged instead of
+     * falling through and crashing on the missing spawnedProcessInternalId header that only real telemetry
+     * intake requests are exempt from. Logs are decoded because Laravel log provenance is under test.
      */
     private const INTAKE_METRICS_DATA_URI_PATH = '/v1/metrics';
     private const INTAKE_LOGS_DATA_URI_PATH = '/v1/logs';
@@ -110,9 +110,12 @@ final class MockOTelCollector extends TestInfraHttpServerProcessBase
 
         if (
             $request->getUri()->getPath() === self::INTAKE_METRICS_DATA_URI_PATH
-            || $request->getUri()->getPath() === self::INTAKE_LOGS_DATA_URI_PATH
         ) {
             return new Response(/* status: */ 202);
+        }
+
+        if ($request->getUri()->getPath() === self::INTAKE_LOGS_DATA_URI_PATH) {
+            return $this->processIntakeDataRequest($request, OTelSignalType::log);
         }
 
         if (TextUtil::isPrefixOf(self::MOCK_API_URI_PREFIX, $request->getUri()->getPath())) {
@@ -154,7 +157,7 @@ final class MockOTelCollector extends TestInfraHttpServerProcessBase
         $bodySize = strlen($body);
         $logger = AmbientContextForTests::loggerFactory()->loggerForClass(LogCategoryForTests::TEST_INFRA, __NAMESPACE__, __CLASS__, __FILE__)->addAllContext(compact('bodySize'));
         $logDebug = $logger->logDebug(__FUNCTION__);
-        $logDebug?->with(__LINE__, 'Deserializing intake trace data request');
+        $logDebug?->with(__LINE__, 'Deserializing intake data request', ['signalType' => $signalType->name]);
         Assert::assertSame($bodySize, $request->getBody()->getSize());
 
         if ($bodySize === 0) {

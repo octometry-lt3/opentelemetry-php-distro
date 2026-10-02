@@ -13,6 +13,7 @@
     "require": {
         "php": "8.1.*||8.2.*||8.3.*||8.4.*||8.5.*",
         "open-telemetry/exporter-otlp": "1.4.0",
+        "open-telemetry/transport-grpc": "1.2.0",
         "open-telemetry/opentelemetry-auto-curl": "0.4.0",
         "open-telemetry/opentelemetry-auto-http-async": "1.4.0",
         "open-telemetry/opentelemetry-auto-laravel": "1.9.0",
@@ -62,6 +63,9 @@
     },
     "config": {
         "process-timeout": 0,
+        "platform": {
+            "ext-grpc": "1.0.0"
+        },
         "sort-packages": true,
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true,
@@ -139,10 +143,7 @@
             "composer run-script -- run_unit_tests"
         ],
         "run_component_tests": [
-            "@putenv OTEL_PHP_ENABLED=false",
-            "@putenv OTEL_PHP_DISABLED_INSTRUMENTATIONS=all",
-            "@putenv OTEL_PHP_AUTOLOAD_ENABLED=false",
-            "phpunit -c phpunit_component_tests.xml"
+            "OTEL_PHP_ENABLED=false OTEL_PHP_DISABLED_INSTRUMENTATIONS=all OTEL_PHP_AUTOLOAD_ENABLED=false phpunit -c phpunit_component_tests.xml"
         ]
     }
 }

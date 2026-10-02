@@ -7,6 +7,7 @@ namespace OTelDistroTests\ComponentTests\Util;
 use OTelDistroTests\ComponentTests\Util\OtlpData\Attributes;
 use OTelDistroTests\ComponentTests\Util\OtlpData\OTelResource;
 use OTelDistroTests\ComponentTests\Util\OtlpData\Span;
+use OTelDistroTests\ComponentTests\Util\OtlpData\LogRecord;
 use OTelDistroTests\Util\ArrayUtilForTests;
 use OTelDistroTests\Util\AssertEx;
 use OTelDistroTests\Util\IterableUtil;
@@ -57,6 +58,24 @@ final class AgentBackendComms
         }
     }
 
+    /** @return iterable<IntakeLogsDataRequest> */
+    public function intakeLogsDataRequests(): iterable
+    {
+        foreach ($this->intakeDataRequests() as $request) {
+            if ($request instanceof IntakeLogsDataRequest) {
+                yield $request;
+            }
+        }
+    }
+
+    /** @return iterable<LogRecord> */
+    public function logRecords(): iterable
+    {
+        foreach ($this->intakeLogsDataRequests() as $request) {
+            yield from $request->logRecords();
+        }
+    }
+
     /**
      * @return iterable<Span>
      */
@@ -101,6 +120,14 @@ final class AgentBackendComms
         foreach ($this->intakeTraceDataRequests() as $intakeRequest) {
             yield from $intakeRequest->resources();
         }
+        foreach ($this->intakeLogsDataRequests() as $intakeRequest) {
+            yield from $intakeRequest->resources();
+        }
+    }
+
+    public function singleLogRecord(): LogRecord
+    {
+        return IterableUtil::singleValue($this->logRecords());
     }
 
     /** @noinspection PhpUnused */
