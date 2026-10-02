@@ -38,7 +38,7 @@ sudo apk add --allow-untrusted <package-file>.apk
 
 ### OTLP/gRPC installer (Ubuntu 22.04 amd64 only)
 
-The upcoming OTLP/gRPC installer supports only Ubuntu 22.04 amd64 with the
+The OTLP/gRPC installer supports only Ubuntu 22.04 amd64 with the
 PHP 8.1 CLI. Ubuntu Jammy's official archives do not provide `php8.1-grpc`, so
 the installer adds the Ondřej Surý Jammy PPA
 (`https://ppa.launchpadcontent.net/ondrej/php/ubuntu`), using a dedicated
@@ -49,12 +49,12 @@ PPA's `php8.1-grpc` package before installing the selected DEB. The DEB does
 not add this repository or depend on that package. RPM and APK packages do not
 support OTLP/gRPC.
 
-The unreleased installer currently defaults to `0.7.0`; use `--version
+The installer defaults to `0.7.1`; use `--version
 <version>` to select a release explicitly. Download the installer and the
 selected DEB checksum before running the installer as root:
 
 ```bash
-VERSION=0.7.0
+VERSION=0.7.1
 BASE_URL="https://github.com/open-telemetry/opentelemetry-php-distro/releases/download/v${VERSION}"
 DEB="opentelemetry-php-distro_${VERSION}_amd64.deb"
 
@@ -65,12 +65,11 @@ sha512sum --check "${DEB}.sha512"
 sudo bash ./install.sh --version "${VERSION}"
 ```
 
-For the default release, omit `--version 0.7.0`. Do not use this installer on
+For the default release, omit `--version`. Do not use this installer on
 another Ubuntu release, architecture, or operating system. The installer
 provisions the CLI SAPI; provision any additional PHP SAPI separately if your
 application requires it. This PPA-backed path is the only supported gRPC
-provisioning path for the upcoming release; it does not change the current
-`0.7.0` release contract.
+provisioning path; it does not change the DEB's package dependency contract.
 
 ## Configure exporter
 

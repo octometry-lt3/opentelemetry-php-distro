@@ -10,7 +10,7 @@ a local release-shaped fixture; no GitHub release is modified.
 EOF
 }
 
-version='0.7.0'
+version='0.7.1'
 deb_path=''
 
 while [[ $# -gt 0 ]]; do

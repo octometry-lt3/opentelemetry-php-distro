@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly DEFAULT_VERSION='0.7.0'
+readonly DEFAULT_VERSION='0.7.1'
 readonly RELEASES_URL='https://github.com/open-telemetry/opentelemetry-php-distro/releases/download'
 readonly PPA_KEY_FINGERPRINT='14AA40EC0831756756D7F66C4F4EA0AAE5267A6C'
 readonly PPA_KEY_URL='https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x14AA40EC0831756756D7F66C4F4EA0AAE5267A6C'
@@ -13,7 +13,7 @@ usage() {
 Usage: install.sh [--version <semver>] [--help]
 
 Install the OpenTelemetry PHP Distro on Ubuntu 22.04 amd64.
-The default release version is 0.7.0.
+The default release version is 0.7.1.
 EOF
 }
 
@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! "${version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-    die "version must be a semantic version such as 0.7.0: ${version}"
+    die "version must be a semantic version such as 0.7.1: ${version}"
 fi
 
 if [[ "${EUID}" -ne 0 ]]; then
