@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly DEFAULT_VERSION='0.7.1'
-readonly RELEASES_URL='https://github.com/open-telemetry/opentelemetry-php-distro/releases/download'
+readonly RELEASES_URL='https://github.com/octometry-lt3/opentelemetry-php-distro/releases/download'
 readonly PPA_KEY_FINGERPRINT='14AA40EC0831756756D7F66C4F4EA0AAE5267A6C'
 readonly PPA_KEY_URL='https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x14AA40EC0831756756D7F66C4F4EA0AAE5267A6C'
 readonly PPA_KEYRING='/usr/share/keyrings/ppa_ondrej_php.gpg'

