@@ -11,8 +11,10 @@ RUN apt-get update \
         logrotate \
         procps \
         rsyslog \
+        php8.1-curl \
         php8.1-mysql \
         php8.1-pgsql \
+        php8.1-xml \
         php8.1-zip \
     && rm -rf /var/lib/apt/lists/*
 

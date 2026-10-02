@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OTelDistroTests\ComponentTests;
 
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -13,11 +14,15 @@ use Illuminate\Foundation\Exceptions\Handler as ExceptionHandlerImpl;
 use Illuminate\Foundation\Http\Kernel as HttpKernelImpl;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\Log;
+use Opentelemetry\Proto\Common\V1\KeyValue as OTelProtoKeyValue;
 use OTelDistroTests\ComponentTests\Util\AppCodeContextUtil;
 use OTelDistroTests\ComponentTests\Util\AppCodeHostParams;
 use OTelDistroTests\ComponentTests\Util\AppCodeRequestParams;
 use OTelDistroTests\ComponentTests\Util\AppCodeTarget;
 use OTelDistroTests\ComponentTests\Util\ComponentTestCaseBase;
+use OTelDistroTests\ComponentTests\Util\ComponentTestsPHPUnitExtension;
 use OTelDistroTests\ComponentTests\Util\OtlpData\SpanKind;
 use OTelDistroTests\ComponentTests\Util\SpanExpectationsBuilder;
 use OTelDistroTests\ComponentTests\Util\WaitForOTelSignalCounts;
@@ -26,6 +31,7 @@ use OTelDistroTests\Util\Config\OptionForProdName;
 use OTelDistroTests\Util\DataProviderForTestBuilder;
 use OTelDistroTests\Util\DebugContext;
 use OTelDistroTests\Util\MixedMap;
+use PHPUnit\Framework\Assert;
 
 /**
  * @group smoke
@@ -39,6 +45,10 @@ final class LaravelAutoInstrumentationTest extends ComponentTestCaseBase
 
     private const ROUTE_URI = '/hello/{name}';
     private const RESPONSE_BODY = 'Hello, world!';
+    private const LOG_BODY = 'laravel-log-resource-reproduction';
+    private const CORRELATION = 'php-distro-e2e-correlation';
+    private const EXPECTED_SERVICE_NAME = 'php-distro-e2e';
+    private const EXPECTED_TENANT_ID = 'php-distro-e2e-tenant';
 
     private static function writeMinimalConfigFiles(string $basePath): void
     {
@@ -97,6 +107,12 @@ final class LaravelAutoInstrumentationTest extends ComponentTestCaseBase
         self::writeMinimalConfigFiles($basePath);
 
         $app = new Application($basePath);
+        $app->instance('config', new Repository([
+            'app' => require $basePath . '/config/app.php',
+            'logging' => require $basePath . '/config/logging.php',
+            'view' => require $basePath . '/config/view.php',
+        ]));
+        Facade::setFacadeApplication($app);
 
         // Anonymous subclasses: empty middleware stacks, since this smoke test
         // doesn't exercise sessions/CSRF/cookies.
@@ -164,6 +180,30 @@ final class LaravelAutoInstrumentationTest extends ComponentTestCaseBase
         $basePath = sys_get_temp_dir() . '/laravel_smoke_test_' . bin2hex(random_bytes(8));
         try {
             $app = self::buildMinimalApp($basePath);
+            Log::withContext(['request.correlation' => self::CORRELATION]);
+            Log::info(self::LOG_BODY);
+
+            $globalsClass = AppCodeContextUtil::adaptClassNameRawStringToScoping('OpenTelemetry\\API\\Globals');
+            $cachedInstrumentationClass = AppCodeContextUtil::adaptClassNameRawStringToScoping('OpenTelemetry\\API\\Instrumentation\\CachedInstrumentation');
+            $cachedInstrumentation = new $cachedInstrumentationClass(self::LARAVEL_INSTRUMENTATION_SCOPE_NAME);
+            $cachedInstrumentation->logger();
+            $loggerProvider = $globalsClass::loggerProvider();
+            $traceProvider = $globalsClass::tracerProvider();
+            $meterProvider = $globalsClass::meterProvider();
+            $loggerProviderFromCache = null;
+            $loggersProperty = new \ReflectionProperty($cachedInstrumentationClass, 'loggers');
+            foreach ($loggersProperty->getValue($cachedInstrumentation) as $provider => $unused) {
+                $loggerProviderFromCache = $provider;
+                break;
+            }
+            $dbgCtx->add([
+                'providerEvidence' => [
+                    'globalLogger' => self::providerEvidence($loggerProvider),
+                    'cachedInstrumentationLogger' => self::providerEvidence($loggerProviderFromCache),
+                    'trace' => self::providerEvidence($traceProvider),
+                    'meter' => self::providerEvidence($meterProvider),
+                ],
+            ]);
 
             /** @var HttpKernel $kernel */
             $kernel = $app->make(HttpKernel::class);
@@ -178,6 +218,28 @@ final class LaravelAutoInstrumentationTest extends ComponentTestCaseBase
         } finally {
             self::removeDirRecursively($basePath);
         }
+    }
+
+    private static function providerEvidence(?object $provider): array
+    {
+        if ($provider === null) {
+            return ['class' => null, 'objectId' => null, 'resourceAttributes' => null];
+        }
+        $resourceAttributes = null;
+        foreach ((new \ReflectionObject($provider))->getProperties() as $property) {
+            $property->setAccessible(true);
+            $value = $property->getValue($provider);
+            if (is_object($value) && method_exists($value, 'getResource')) {
+                $resource = $value->getResource();
+                $resourceAttributes = $resource->getAttributes()->toArray();
+                break;
+            }
+            if (is_object($value) && method_exists($value, 'getAttributes') && str_ends_with($property->getName(), 'resource')) {
+                $resourceAttributes = $value->getAttributes()->toArray();
+                break;
+            }
+        }
+        return ['class' => get_class($provider), 'objectId' => spl_object_id($provider), 'resourceAttributes' => $resourceAttributes];
     }
 
     /**
@@ -198,13 +260,19 @@ final class LaravelAutoInstrumentationTest extends ComponentTestCaseBase
         $isAutoInstrumentationEnabled = $testArgs->getBool(self::IS_AUTO_INSTRUMENTATION_ENABLED_KEY);
 
         $testCaseHandle = $this->getTestCaseHandle();
+        $yamlConfigFile = tempnam(sys_get_temp_dir(), 'laravel_log_resource_') . '.yaml';
+        $mockCollectorPort = ComponentTestsPHPUnitExtension::getGlobalTestInfra()->getMockOTelCollector()->getPortForAgent();
+        file_put_contents($yamlConfigFile, "file_format: \"1.0-rc.2\"\nresource:\n  attributes:\n    - name: service.name\n      value: \${OTEL_SERVICE_NAME}\n    - name: saas.tenant.id\n      value: \${DEPLOYMENT_TENANT_ID}\n  detection/development:\n    detectors:\n      - distro: {}\nlogger_provider:\n  processors:\n    - batch:\n        exporter:\n          otlp_http:\n            endpoint: http://127.0.0.1:$mockCollectorPort/v1/logs\ntracer_provider:\n  processors:\n    - batch:\n        exporter:\n          otlp_http:\n            endpoint: http://127.0.0.1:$mockCollectorPort/v1/traces\n");
 
         $appCodeHost = $testCaseHandle->ensureMainAppCodeHost(
-            function (AppCodeHostParams $appCodeHostParams) use ($isAutoInstrumentationEnabled): void {
+            function (AppCodeHostParams $appCodeHostParams) use ($isAutoInstrumentationEnabled, $yamlConfigFile): void {
                 if (!$isAutoInstrumentationEnabled) {
                     $appCodeHostParams->setProdOptionIfNotNull(OptionForProdName::disabled_instrumentations, self::AUTO_INSTRUMENTATION_NAME);
                 }
                 self::disableTimingDependentFeatures($appCodeHostParams);
+                $appCodeHostParams->setAdditionalEnvVar('OTEL_CONFIG_FILE', $yamlConfigFile);
+                $appCodeHostParams->setAdditionalEnvVar('OTEL_SERVICE_NAME', self::EXPECTED_SERVICE_NAME);
+                $appCodeHostParams->setAdditionalEnvVar('DEPLOYMENT_TENANT_ID', self::EXPECTED_TENANT_ID);
             }
         );
         $appCodeHost->execAppCode(
@@ -216,7 +284,7 @@ final class LaravelAutoInstrumentationTest extends ComponentTestCaseBase
 
         if ($isAutoInstrumentationEnabled) {
             // +1 automatic local root span, +1 Kernel::handle span
-            $agentBackendComms = $testCaseHandle->waitForEnoughAgentBackendComms(WaitForOTelSignalCounts::spans(2));
+            $agentBackendComms = $testCaseHandle->waitForEnoughAgentBackendComms(WaitForOTelSignalCounts::spansAndLogs(2));
             $dbgCtx->add(compact('agentBackendComms'));
 
             $rootSpan = $agentBackendComms->singleRootSpan();
@@ -228,6 +296,25 @@ final class LaravelAutoInstrumentationTest extends ComponentTestCaseBase
                 ->instrumentationScopeName(self::LARAVEL_INSTRUMENTATION_SCOPE_NAME)
                 ->build();
             $expectationsForLaravelServerSpan->assertMatches($laravelServerSpan);
+            $logRecord = $agentBackendComms->singleLogRecord();
+            self::assertSame(self::LOG_BODY, $logRecord->body);
+            $context = $logRecord->attributes->getValue('context');
+            Assert::assertIsArray($context);
+            $correlation = null;
+            foreach ($context as $entry) {
+                Assert::assertInstanceOf(OTelProtoKeyValue::class, $entry);
+                if ($entry->getKey() !== 'request.correlation') {
+                    continue;
+                }
+                $value = $entry->getValue();
+                Assert::assertNotNull($value);
+                $correlation = $value->getStringValue();
+                break;
+            }
+            self::assertSame(self::CORRELATION, $correlation);
+            self::assertSame(self::LARAVEL_INSTRUMENTATION_SCOPE_NAME, $logRecord->instrumentationScopeName);
+            self::assertSame(self::EXPECTED_SERVICE_NAME, self::singleResourceAttribute($agentBackendComms, 'service.name'));
+            self::assertSame(self::EXPECTED_TENANT_ID, self::singleResourceAttribute($agentBackendComms, 'saas.tenant.id'));
         } else {
             // +1 automatic local root span only
             $agentBackendComms = $testCaseHandle->waitForEnoughAgentBackendComms(WaitForOTelSignalCounts::spans(1));
@@ -235,6 +322,18 @@ final class LaravelAutoInstrumentationTest extends ComponentTestCaseBase
 
             self::assertEmpty(iterator_to_array($agentBackendComms->findSpansByInstrumentationScope(self::LARAVEL_INSTRUMENTATION_SCOPE_NAME)));
         }
+    }
+
+    private static function singleResourceAttribute($agentBackendComms, string $name): string
+    {
+        $values = [];
+        foreach ($agentBackendComms->resources() as $resource) {
+            if ($resource->attributes->tryToGetString($name) !== null) {
+                $values[] = $resource->attributes->getString($name);
+            }
+        }
+        Assert::assertNotEmpty($values);
+        return $values[0];
     }
 
     /**

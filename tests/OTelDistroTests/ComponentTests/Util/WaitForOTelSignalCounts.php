@@ -20,6 +20,8 @@ final class WaitForOTelSignalCounts implements IsEnoughAgentBackendCommsInterfac
 
     private int $minSpanCount = 0;
     private int $maxSpanCount = 0;
+    private int $minLogCount = 0;
+    private int $maxLogCount = 0;
 
     private readonly Logger $logger;
 
@@ -54,16 +56,47 @@ final class WaitForOTelSignalCounts implements IsEnoughAgentBackendCommsInterfac
         return self::spans(min: $min, max: PHP_INT_MAX);
     }
 
+    /**
+     * @param positive-int $minSpanCount
+     * @param positive-int $minLogCount
+     */
+    public static function spansAndLogs(int $minSpanCount, int $minLogCount = 1): self
+    {
+        Assert::assertGreaterThan(0, $minSpanCount);
+        Assert::assertGreaterThan(0, $minLogCount);
+        $result = new self();
+        $result->minSpanCount = $minSpanCount;
+        $result->maxSpanCount = $minSpanCount;
+        $result->minLogCount = $minLogCount;
+        $result->maxLogCount = $minLogCount;
+        return $result;
+    }
+
+    /** @param positive-int $min */
+    public static function logs(int $min = 1): self
+    {
+        Assert::assertGreaterThan(0, $min);
+        $result = new self();
+        $result->maxSpanCount = PHP_INT_MAX;
+        $result->minLogCount = $min;
+        $result->maxLogCount = $min;
+        return $result;
+    }
+
     #[Override]
     public function isEnough(AgentBackendComms $comms): bool
     {
         $spansCount = IterableUtil::count($comms->spans());
+        $logsCount = IterableUtil::count($comms->logRecords());
         Assert::assertLessThanOrEqual($this->maxSpanCount, $spansCount);
+        Assert::assertLessThanOrEqual($this->maxLogCount ?: PHP_INT_MAX, $logsCount);
 
         // If minSpanCount !== 0 then check that there is at least one root span
-        $result = ($spansCount >= $this->minSpanCount) && (($this->minSpanCount === 0) || self::isThereAtLeastOneRootSpan($comms->spans()));
+        $result = $this->minLogCount > 0
+            ? $logsCount >= $this->minLogCount
+            : ($spansCount >= $this->minSpanCount) && (($this->minSpanCount === 0) || self::isThereAtLeastOneRootSpan($comms->spans()));
 
-        $this->logger->logDebug(__FUNCTION__)?->with(__LINE__, 'Checked if exported data events counts reached the waited for values', compact('result', 'spansCount', 'this'));
+        $this->logger->logDebug(__FUNCTION__)?->with(__LINE__, 'Checked if exported data events counts reached the waited for values', compact('result', 'spansCount', 'logsCount', 'this'));
 
         return $result;
     }

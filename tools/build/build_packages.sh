@@ -71,6 +71,11 @@ if [[ -z "${PACKAGE_VERSION+x}" ]] || [[ -z "${BUILD_ARCHITECTURE+x}" ]] || [[ -
     exit 1
 fi
 
+./tools/build/verify_package_embedded_versions.sh \
+    --build_architecture "${BUILD_ARCHITECTURE}" \
+    --php-code-dir "${PWD}/_BUILT/php_code_for_packages" \
+    --native-build-dir "${PWD}/prod/native/_build"
+
 sanitize_package_version_for_type() {
     local version="${1:?}"
     local pkg_type="${2:?}"
@@ -116,7 +121,7 @@ test_package() {
                 "php:${_PHP_VERSION}-alpine" sh -c "ls /source/_BUILT/packages && ${INSTALL_SMOKE} && ${TEST_LICENSE_FILES} && ${UNINSTALL_SMOKE} && ls -alR /opt/opentelemetry/php/distro"
         ;;
         "deb")
-            local INSTALL_SMOKE="dpkg -i  /source/_BUILT/packages/${_PKG_FILENAME} && php /source/packaging/test/smokeTest.php ${_SCOPE_NAME}"
+            local INSTALL_SMOKE="dpkg -i /source/_BUILT/packages/${_PKG_FILENAME} && php --ri opentelemetry_distro >/tmp/opentelemetry_distro_ri.txt && /source/packaging/test/verify_embedded_versions.sh /tmp/opentelemetry_distro_ri.txt && php /source/packaging/test/smokeTest.php ${_SCOPE_NAME}"
             local UNINSTALL_SMOKE="dpkg --purge opentelemetry-php-distro && php /source/packaging/test/smokeTestUninstalled.php ${_SCOPE_NAME}"
             docker run --rm \
                 --platform "${_DOCKER_PLATFORM}" \
@@ -214,12 +219,12 @@ do
         exit 1
     fi
 
-    # create sha512 file
+    test_package "${pkg_type}" "${PKG_FILENAME}" "${DOCKER_PLATFORM}" "${SCOPE_NAME}"
+
+    # create sha512 file only after the install smoke test passes
     pushd "${PWD}/_BUILT/packages"
     sha512sum "${PKG_FILENAME}" >"${PKG_FILENAME}".sha512
     popd
-
-    test_package "${pkg_type}" "${PKG_FILENAME}" "${DOCKER_PLATFORM}" "${SCOPE_NAME}"
 
 done
 

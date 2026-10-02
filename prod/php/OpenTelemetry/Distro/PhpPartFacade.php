@@ -93,6 +93,7 @@ final class PhpPartFacade
 
             InstrumentationBridge::singletonInstance()->bootstrap();
             self::prepareForOTelSdk();
+            self::hydrateServerEnvFromProcessEnv();
 
             self::registerAutoloaderForVendorDir();
             ScopedDepsBridge::load(self::$vendorCustomizations);
@@ -237,6 +238,16 @@ final class PhpPartFacade
         // Currently, this is handled by the test infrastructure (AppCodeHostParams::filterBaseEnvVars),
         // but if the issue occurs in production deployments, uncomment the line below.
         // putenv('COMPOSER_DEV_MODE');
+    }
+
+    private static function hydrateServerEnvFromProcessEnv(): void
+    {
+        $processEnv = getenv();
+        foreach ($processEnv as $name => $value) {
+            if (!array_key_exists($name, $_SERVER)) {
+                $_SERVER[$name] = $value;
+            }
+        }
     }
 
     private static function registerAutoloaderForVendorDir(): void

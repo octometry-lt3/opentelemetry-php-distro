@@ -3,7 +3,9 @@ file_format: "1.0-rc.2"
 resource:
   attributes:
     - name: service.name
-      value: declarative-config-component-test
+      value: ${OTEL_SERVICE_NAME:-php-distro-laravel}
+    - name: saas.tenant.id
+      value: ${DEPLOYMENT_TENANT_ID:-distro-fixture-tenant}
     - name: test.custom.attribute
       value: test-value-from-yaml
   detection/development:
@@ -25,3 +27,10 @@ tracer_provider:
         exporter:
           otlp_http:
             endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}/v1/traces
+
+logger_provider:
+  processors:
+    - batch:
+        exporter:
+          otlp_http:
+            endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}/v1/logs
