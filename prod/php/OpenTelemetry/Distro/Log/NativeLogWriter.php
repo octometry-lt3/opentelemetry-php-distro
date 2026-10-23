@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Distro\Log;
 
+use JsonException;
 use OpenTelemetry\API\Behavior\Internal\Logging;
 use OpenTelemetry\SDK\Common\Configuration\Configuration;
 use OpenTelemetry\API\Behavior\Internal\LogWriter\LogWriterInterface;
@@ -29,8 +30,6 @@ class NativeLogWriter implements LogWriterInterface
         $caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 4)[3];
 
         $func = ($caller['class'] ?? '') . ($caller['type'] ?? '') . $caller['function'];
-        $logContext = $this->attachLogContext ? (' context: ' . var_export($context, true)) : '';
-
         /**
          * Use fully qualified names for functions implemented by the extension to make sure scoper correctly detects them
          * @noinspection PhpFullyQualifiedNameUsageInspection
@@ -42,8 +41,26 @@ class NativeLogWriter implements LogWriterInterface
             $caller['file'] ?? '',
             $caller['line'] ?? null,
             $func,
-            $message . $logContext
+            self::formatMessage($message, $context, $this->attachLogContext)
         );
+    }
+
+    /**
+     * @param array<array-key, mixed> $context
+     */
+    private static function formatMessage(string $message, array $context, bool $attachLogContext): string
+    {
+        $logContext = '';
+        if ($attachLogContext) {
+            try {
+                $contextAsJson = json_encode($context, JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                $contextAsJson = '{"error":"Failed to JSON encode context"}';
+            }
+            $logContext = ' context: ' . $contextAsJson;
+        }
+
+        return str_replace(["\r", "\n"], ['\\r', '\\n'], $message . $logContext);
     }
 
     public static function enableLogWriter(): void

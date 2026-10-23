@@ -49,12 +49,12 @@ PPA's `php8.1-grpc` package before installing the selected DEB. The DEB does
 not add this repository or depend on that package. RPM and APK packages do not
 support OTLP/gRPC.
 
-The installer defaults to `0.7.1`; use `--version
+The installer defaults to `0.7.2`; use `--version
 <version>` to select a release explicitly. Download the installer and the
 selected DEB checksum before running the installer as root:
 
 ```bash
-VERSION=0.7.1
+VERSION=0.7.2
 BASE_URL="https://github.com/octometry-lt3/opentelemetry-php-distro/releases/download/v${VERSION}"
 DEB="opentelemetry-php-distro_${VERSION}_amd64.deb"
 
