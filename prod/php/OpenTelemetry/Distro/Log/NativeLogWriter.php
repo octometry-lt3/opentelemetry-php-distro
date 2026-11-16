@@ -10,6 +10,7 @@ use JsonException;
 use OpenTelemetry\API\Behavior\Internal\Logging;
 use OpenTelemetry\SDK\Common\Configuration\Configuration;
 use OpenTelemetry\API\Behavior\Internal\LogWriter\LogWriterInterface;
+use Throwable;
 
 class NativeLogWriter implements LogWriterInterface
 {
@@ -52,6 +53,18 @@ class NativeLogWriter implements LogWriterInterface
     {
         $logContext = '';
         if ($attachLogContext) {
+            foreach ($context as $key => $value) {
+                if ($value instanceof Throwable) {
+                    $context[$key] = [
+                        'type' => $value::class,
+                        'message' => $value->getMessage(),
+                        'code' => $value->getCode(),
+                        'file' => $value->getFile(),
+                        'line' => $value->getLine(),
+                        'stacktrace' => $value->getTraceAsString(),
+                    ];
+                }
+            }
             try {
                 $contextAsJson = json_encode($context, JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
             } catch (JsonException) {
