@@ -300,14 +300,14 @@ void callPostHook(AutoZval &hook, zval *return_value, zend_object *exception, ze
     }
 
     std::array<AutoZval, 8> parameters;
-    getScopeNameOrThis(parameters[0].get(), EG(current_execute_data));
-    getCallArguments(parameters[1].get(), EG(current_execute_data));
+    getScopeNameOrThis(parameters[0].get(), execute_data);
+    getCallArguments(parameters[1].get(), execute_data);
     getFunctionReturnValue(parameters[2].get(), return_value);
     getCurrentException(parameters[3].get(), exception);
-    getFunctionDeclaringScope(parameters[4].get(), EG(current_execute_data));
-    getFunctionName(parameters[5].get(), EG(current_execute_data));
-    getFunctionDeclarationFileName(parameters[6].get(), EG(current_execute_data));
-    getFunctionDeclarationLineNo(parameters[7].get(), EG(current_execute_data));
+    getFunctionDeclaringScope(parameters[4].get(), execute_data);
+    getFunctionName(parameters[5].get(), execute_data);
+    getFunctionDeclarationFileName(parameters[6].get(), execute_data);
+    getFunctionDeclarationLineNo(parameters[7].get(), execute_data);
 
     AutoZval hookRv;
     fci.param_count = parameters.size();
