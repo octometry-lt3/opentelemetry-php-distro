@@ -104,7 +104,7 @@ main() {
             "${PHP_docker_image}" \
             sh -c "\
                 apk update && apk add bash git \
-                && curl -sS https://getcomposer.org/installer | php -- --filename=composer --install-dir=/usr/local/bin \
+                && curl -sS https://getcomposer.org/installer | php -- --version=2.8.12 --filename=composer --install-dir=/usr/local/bin \
                 && echo 'Running static check on prod (without dev only dependencies); PHP_version_no_dot:' ${PHP_version_no_dot} \
                 && mkdir -p /tmp/repo \
                 && cp -r /repo_root/* /tmp/repo/ \
