@@ -8,6 +8,7 @@ use JsonException;
 use OpenTelemetry\Distro\Log\NativeLogWriter;
 use OTelDistroTests\Util\TestCaseBase;
 use ReflectionMethod;
+use RuntimeException;
 
 final class NativeLogWriterTest extends TestCaseBase
 {
@@ -69,6 +70,22 @@ final class NativeLogWriterTest extends TestCaseBase
         self::assertSame('[OTEL] WARNING: empty context context: []', $formattedMessage);
         self::assertSingleLine($formattedMessage);
         self::assertSame([], self::appendedContext($formattedMessage));
+    }
+
+    public function testPreservesExceptionDetailsInSingleLineJsonContext(): void
+    {
+        $exception = new RuntimeException("failed to connect\nretry", 14);
+
+        $formattedMessage = self::formatMessage('[OTEL] ERROR: export failed', ['exception' => $exception]);
+
+        self::assertSingleLine($formattedMessage);
+        $details = self::appendedContext($formattedMessage)['exception'];
+        self::assertSame(RuntimeException::class, $details['type']);
+        self::assertSame($exception->getMessage(), $details['message']);
+        self::assertSame(14, $details['code']);
+        self::assertSame($exception->getFile(), $details['file']);
+        self::assertSame($exception->getLine(), $details['line']);
+        self::assertSame($exception->getTraceAsString(), $details['stacktrace']);
     }
 
     public function testDoesNotAppendContextWhenDisabled(): void

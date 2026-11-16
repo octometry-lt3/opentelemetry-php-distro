@@ -77,6 +77,7 @@ opentelemetry_distro.enabled=true
 | `OTEL_PHP_LOG_LEVEL_STDERR` | `OFF` | `OFF`, `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`, `TRACE` | Stderr sink log level |
 | `OTEL_PHP_LOG_LEVEL_SYSLOG` | `OFF` | `OFF`, `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`, `TRACE` | Syslog sink log level |
 | `OTEL_PHP_LOG_FEATURES` | (empty) | `FEATURE=LEVEL,...` | Per-feature log levels |
+| `OTEL_PHP_LOG_OTEL_WITH_CONTEXT` | `true` | Boolean | Append compact JSON context to SDK diagnostics; exceptions include type, message, code, location, and stack trace. Each diagnostic remains one physical line. The `[OTEL]` prefix is text, so the full line is not a JSON document. |
 
 ### Transaction span
 
