@@ -142,7 +142,7 @@ verify_otlp_exporters() {
         "\
             mkdir /used_as_base && cd /used_as_base \
             && apk update && apk add bash git \
-            && curl -sS https://getcomposer.org/installer | php -- --version=2.8.12 --filename=composer --install-dir=/usr/local/bin \
+            && curl -sS https://getcomposer.org/installer | php -- --filename=composer --install-dir=/usr/local/bin --version=${_PROJECT_PROPERTIES_COMPOSER_VERSION:?} \
             && composer require ${_PHP_IMPL_PACKAGE_NAME}:${_NATIVE_OTLP_EXPORTERS_PROTO_VERSION:?} \
             && composer --no-dev install \
             && diff -r /used_as_base/vendor/${_PHP_IMPL_PACKAGE_NAME} /new_vendor/${_PHP_IMPL_PACKAGE_NAME} \
@@ -275,6 +275,11 @@ main() {
         # --- Reusable command blocks ---
         local INSTALL_SCOPER_CMD="curl -fLsS -o /usr/local/bin/php-scoper.phar https://github.com/humbug/php-scoper/releases/download/${_PHP_SCOPER_VERSION}/php-scoper.phar"
 
+        local BACKPORT_GRPC_ROOTS_CMD="true"
+        if [ "${_PHP_VERSION_WITHOUT_DOT}" = "81" ]; then
+            BACKPORT_GRPC_ROOTS_CMD="/tmp/repo/tools/build/backport_grpc_roots_for_php81.sh /tmp/repo/vendor"
+        fi
+
         local COPY_REPO_TO_TMP_CMD="mkdir -p /tmp/repo && cd /read_only_repo_root && cp -r . /tmp/repo/ && cd /tmp/repo"
 
         local _NOT_SCOPED_DISTRO_TEMP_IN_DOCKER_DIR="/tmp/repo/prod/php/OpenTelemetry"
@@ -365,12 +370,13 @@ main() {
 
             docker_sh_cmd="\
                 apk update && apk add ${_APK_EXTRA_PKGS} \
-                && curl -sS https://getcomposer.org/installer | php -- --version=2.8.12 --filename=composer --install-dir=/usr/local/bin \
+                && curl -sS https://getcomposer.org/installer | php -- --filename=composer --install-dir=/usr/local/bin --version=${_PROJECT_PROPERTIES_COMPOSER_VERSION:?} \
                 && ${VERIFY_LOCK_FILES_CMD} \
                 && ${COPY_REPO_TO_TMP_CMD} \
                 && rm -rf composer.json composer.lock ./vendor/ \
                 && php ./tools/build/select_json_lock_and_install_PHP_deps.php prod \
                 ${LOCAL_REPOS_OVERRIDE_CMDS} \
+                && ${BACKPORT_GRPC_ROOTS_CMD} \
                 && rm -rf ${_NOT_SCOPED_VENDOR_PHP_VERSION_IN_DOCKER_DIR} \
                 && mkdir -p ${_NOT_SCOPED_VENDOR_PHP_VERSION_IN_DOCKER_DIR} \
                 && cp -r /tmp/repo/vendor/. ${_NOT_SCOPED_VENDOR_PHP_VERSION_IN_DOCKER_DIR}/ \

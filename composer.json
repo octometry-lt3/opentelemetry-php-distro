@@ -72,11 +72,10 @@
             "php-http/discovery": true,
             "tbachert/spi": true
         },
-        "policy": {
-            "advisories": {
-                "ignore": {
-                    "laravel/framework": "Dev/test-only dependency for component test smoke coverage, never shipped in the distro package"
-                }
+        "audit": {
+            "ignore": {
+                "laravel/framework": "Dev/test-only dependency for component test smoke coverage, never shipped in the distro package",
+                "PKSA-pwrg-9hf1-r8jr": "PHP 8.1 cannot install a patched grpc/grpc release; the build replaces roots.pem with the byte-verified file from the official gRPC security fix before packaging"
             }
         }
     },
