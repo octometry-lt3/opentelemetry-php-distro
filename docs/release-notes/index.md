@@ -1,3 +1,16 @@
+## 0.7.2
+
+### This release is based on the following OpenTelemetry PHP packages:
+
+- PHP 8.1: [open-telemetry/api 1.10.1](https://packagist.org/packages/open-telemetry/api#1.10.1), [open-telemetry/context 1.5.0](https://packagist.org/packages/open-telemetry/context#1.5.0), [open-telemetry/sdk 1.15.0](https://packagist.org/packages/open-telemetry/sdk#1.15.0), and [open-telemetry/sdk-configuration 0.9.0](https://packagist.org/packages/open-telemetry/sdk-configuration#0.9.0)
+- PHP 8.2-8.5: [open-telemetry/api 1.11.0](https://packagist.org/packages/open-telemetry/api#1.11.0), [open-telemetry/context 1.6.0](https://packagist.org/packages/open-telemetry/context#1.6.0), [open-telemetry/sdk 1.16.1](https://packagist.org/packages/open-telemetry/sdk#1.16.1), and [open-telemetry/sdk-configuration 0.10.0](https://packagist.org/packages/open-telemetry/sdk-configuration#0.10.0)
+- All supported PHP versions: [open-telemetry/sem-conv 1.45.0](https://packagist.org/packages/open-telemetry/sem-conv#1.45.0)
+
+### What's changed
+
+- fix: align the bundled OpenTelemetry bridge packages with the PHP 8.2+ API generation while retaining a PHP 8.1-compatible dependency set
+- build: align Weaver 0.28.0 with the Semantic Conventions 1.45.0 registry schema
+
 ## 0.7.1
 
 ### This release is based on the following OpenTelemetry PHP packages:
