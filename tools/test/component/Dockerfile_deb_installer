@@ -1,22 +1,28 @@
+ARG COMPOSER_VERSION
+
+FROM composer:${COMPOSER_VERSION} AS composer_bin
+
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
-        composer \
         git \
         libpq-dev \
         libzip-dev \
         logrotate \
         procps \
         rsyslog \
+        php8.1-cli \
         php8.1-curl \
         php8.1-mysql \
         php8.1-pgsql \
         php8.1-xml \
         php8.1-zip \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer_bin /usr/bin/composer /usr/bin/composer
 
 WORKDIR /
 
