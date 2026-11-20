@@ -376,6 +376,7 @@ main() {
                 && rm -rf composer.json composer.lock ./vendor/ \
                 && php ./tools/build/select_json_lock_and_install_PHP_deps.php prod \
                 ${LOCAL_REPOS_OVERRIDE_CMDS} \
+                && php ./tools/build/patch_laravel_messaging_semconv.php /tmp/repo/vendor \
                 && ${BACKPORT_GRPC_ROOTS_CMD} \
                 && rm -rf ${_NOT_SCOPED_VENDOR_PHP_VERSION_IN_DOCKER_DIR} \
                 && mkdir -p ${_NOT_SCOPED_VENDOR_PHP_VERSION_IN_DOCKER_DIR} \

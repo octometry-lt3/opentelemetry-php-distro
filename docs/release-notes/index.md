@@ -9,6 +9,7 @@
 ### What's changed
 
 - fix: align the bundled OpenTelemetry bridge packages with the PHP 8.2+ API generation while retaining a PHP 8.1-compatible dependency set
+- fix: adapt Laravel queue instrumentation to the messaging attribute names in Semantic Conventions 1.45.0
 - build: align Weaver 0.28.0 with the Semantic Conventions 1.45.0 registry schema
 
 ## 0.7.1
